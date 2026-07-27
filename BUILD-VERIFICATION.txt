@@ -1,0 +1,11 @@
+VALID TREE SERVICE OPERATIONS — VERIFICATION
+
+Completed:
+- Every JavaScript and JSX source file parsed successfully with the Babel parser.
+- Supabase schema was rewritten for a fresh production project with owner-scoped Row Level Security.
+- Public contract signing uses token-specific security-definer RPC functions instead of exposing the contracts table to anonymous users.
+- AI and signature-delivery Edge Function source files are included.
+- The project contains no secret server credentials.
+
+Environment limitation:
+A full Vite production build could not be completed inside the Linux artifact environment because npm dependency installation repeatedly timed out, while the uploaded node_modules contained Windows-only Rollup binaries. On the user's Windows computer, run npm.cmd install and npm.cmd run build. Any resulting error should be addressed before production deployment.

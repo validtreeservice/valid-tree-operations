@@ -1,0 +1,5 @@
+project_id = "valid-tree-operations"
+[functions.ai-assistant]
+verify_jwt = true
+[functions.send-signature-link]
+verify_jwt = true
