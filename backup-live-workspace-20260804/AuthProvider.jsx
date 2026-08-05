@@ -31,15 +31,13 @@ export function AuthProvider({ children }) {
     return () => data.subscription.unsubscribe()
   }, [])
   const signIn = async (email, password) => {
-    if (!supabase) {
-      return { error: new Error('The live workspace connection is unavailable. Please refresh the page or contact support. Your login was not switched to demo mode.') }
-    }
+    if (!supabase) { setUser({ id: 'demo-owner', email: email || 'owner@validtreeservice.com', user_metadata: { full_name: 'Owner' } }); return { error: null } }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (data?.user) await ensureFirstOwner(data.user)
     return { error }
   }
   const signOut = async () => { if (supabase) await supabase.auth.signOut(); setUser(null) }
   const demo = () => setUser({ id: 'demo-owner', email: 'owner@validtreeservice.com', user_metadata: { full_name: 'Owner' } })
-  return <AuthContext.Provider value={{ user, loading, signIn, signOut, demo, isDemo: user?.id === 'demo-owner' }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, signIn, signOut, demo, isDemo: !isSupabaseConfigured || user?.id === 'demo-owner' }}>{children}</AuthContext.Provider>
 }
 export const useAuth = () => useContext(AuthContext)
