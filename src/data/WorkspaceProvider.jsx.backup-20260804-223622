@@ -128,10 +128,6 @@ export function WorkspaceProvider({ children }) {
           .select('*')
           .single()
         if (error) { setSyncError(error.message); throw error }
-        // Invalidate any refresh that began after this save started but before
-        // Supabase finished committing it. Otherwise that older response can
-        // arrive after the local insert and make the new job disappear.
-        mutationRevision.current += 1
         setData((current) => ({
           ...current,
           [collection]: [saved, ...(current[collection] || []).filter((item) => item.id !== saved.id)],
@@ -147,7 +143,6 @@ export function WorkspaceProvider({ children }) {
         mutationRevision.current += 1
         const { data: saved, error } = await supabase.from(collection).update(patch).eq('id', idOrItem).select('*').single()
         if (error) { setSyncError(error.message); throw error }
-        mutationRevision.current += 1
         setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === idOrItem ? saved : item) }))
         return saved
       }
@@ -223,7 +218,7 @@ export function WorkspaceProvider({ children }) {
     equipmentItem: (id) => data.equipment?.find((item) => item.id === id),
     reset: () => setData(seed), saveSettings, uploadReceipt, getReceiptUrl, linkStaff,
     loading, syncError, refresh: loadLive, isDemo,
-  }), [data, loading, syncError, loadLive, isDemo, mutate])
+  }), [data, loading, syncError, loadLive, isDemo])
 
   return <Store.Provider value={value}>{children}</Store.Provider>
 }
