@@ -1,93 +1,89 @@
-import { useState } from "react";
-import { useWorkspace } from "../data/WorkspaceProvider";
-import PageHeader from "../components/PageHeader";
-import Modal from "../components/Modal";
-import StatusBadge from "../components/StatusBadge";
+import { useMemo, useState } from 'react'
+import { Modal, PageHeader, StatusBadge } from '../components/ui'
+import { useWorkspace } from '../data/WorkspaceProvider'
 
 const blank = {
-  customer_id: "",
-  title: "",
-  crew_id: "",
-  date: "",
-  start_time: "07:30",
-  status: "scheduled",
-  address: "",
-  foreman_notes: "",
-  equipment: "",
-};
-
-export default function JobsPage() {
-const {
-  data,
-  customer,
-  crew,
-  addAndWait,
-  update,
-  remove,
-} = useWorkspace();
-
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState(blank);
-
-async function save(e) {
-  e.preventDefault();
-
-  try {
-    const payload = {
-      ...form,
-      crew_id: form.crew_id || null,
-      number: `JOB-${new Date().getFullYear()}-${String(
-        data.jobs.length + 90
-      ).padStart(4, "0")}`,
-      completion_notes: "",
-    };
-
-    const rec = await addAndWait("jobs", payload);
-
-    setOpen(false);
-    setForm(blank);
-    setSelected(rec);
-  } catch (error) {
-    console.error("Job insert failed:", error);
-
-    window.alert(
-      error?.message ||
-        error?.details ||
-        "The job could not be saved."
-    );
-  }
+  customer_id: '',
+  title: '',
+  crew_id: '',
+  date: '',
+  start_time: '07:30',
+  status: 'scheduled',
+  address: '',
+  foreman_notes: '',
+  equipment: '',
 }
 
-  async function deleteJob() {
-    if (!selected) return;
+function nextJobNumber(jobs) {
+  const year = new Date().getFullYear()
+  const highest = jobs.reduce((current, job) => {
+    const match = String(job.number || '').match(/^JOB-\d{4}-(\d+)$/)
+    return match ? Math.max(current, Number(match[1])) : current
+  }, 89)
 
-    const confirmed = window.confirm(
-      `Delete ${selected.number || "this job"}? This cannot be undone.`
-    );
+  return `JOB-${year}-${String(highest + 1).padStart(4, '0')}`
+}
 
-    if (!confirmed) return;
+export default function JobsPage() {
+  const ws = useWorkspace()
+  const { data, customer, crew, updateAndWait } = ws
+  const [open, setOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState(null)
+  const [form, setForm] = useState(blank)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
 
+  const selected = useMemo(
+    () => data.jobs.find((job) => job.id === selectedId) || null,
+    [data.jobs, selectedId],
+  )
+
+  function openScheduler() {
+    setForm(blank)
+    setFormError('')
+    setOpen(true)
+  }
+
+  async function save(event) {
+    event.preventDefault()
+    setFormError('')
+
+    if (!form.customer_id || !form.title.trim() || !form.date) {
+      setFormError('Choose a customer, enter a job title, and select the work date.')
+      return
+    }
+
+    setSaving(true)
     try {
-      await remove("jobs", selected.id);
-      setSelected(null);
+      const record = await ws.addAndWait('jobs', {
+        ...form,
+        title: form.title.trim(),
+        crew_id: form.crew_id || null,
+        start_time: form.start_time || null,
+        address: form.address.trim(),
+        foreman_notes: form.foreman_notes.trim(),
+        equipment: form.equipment.trim(),
+        number: nextJobNumber(data.jobs),
+        completion_notes: '',
+      })
+
+      setOpen(false)
+      setForm(blank)
+      setSelectedId(record.id)
     } catch (error) {
-      console.error("Failed to delete job:", error);
-      window.alert(
-        error?.message || "The job could not be deleted."
-      );
+      setFormError(error?.message || 'The job could not be scheduled. Please try again.')
+    } finally {
+      setSaving(false)
     }
   }
 
-  function updateStatus(status) {
-    if (!selected) return;
-
-    update("jobs", selected.id, { status });
-
-    setSelected((current) => ({
-      ...current,
-      status,
-    }));
+  async function changeStatus(status) {
+    if (!selected) return
+    try {
+      await updateAndWait('jobs', selected.id, { status })
+    } catch (error) {
+      window.alert(error?.message || 'The job status could not be updated.')
+    }
   }
 
   return (
@@ -95,394 +91,100 @@ async function save(e) {
       <PageHeader
         title="Jobs"
         description="Turn sold work into a clean field handoff with crew, equipment, notes, and completion proof."
-        action={
-          <button
-            type="button"
-            className="button primary"
-            onClick={() => setOpen(true)}
-          >
-            Schedule job
-          </button>
-        }
+        action={<button className="button primary" onClick={openScheduler}>Schedule job</button>}
       />
 
       <div className="board">
-        {["scheduled", "in progress", "completed"].map((status) => (
+        {['scheduled', 'in progress', 'completed'].map((status) => (
           <div className="board-column" key={status}>
             <div className="board-title">
               <span>{status}</span>
-
-              <b>
-                {
-                  data.jobs.filter(
-                    (job) => job.status === status
-                  ).length
-                }
-              </b>
+              <b>{data.jobs.filter((job) => job.status === status).length}</b>
             </div>
-
-            {data.jobs
-              .filter((job) => job.status === status)
-              .map((job) => (
-                <article
-                  className="job-card"
-                  key={job.id}
-                  onClick={() => setSelected(job)}
-                >
-                  <div className="job-card-date">
-                    <strong>
-                      {job.date
-                        ? new Date(
-                            `${job.date}T12:00`
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "No date"}
-                    </strong>
-
-                    <span>{job.start_time}</span>
-                  </div>
-
-                  <h3>{job.title}</h3>
-
-                  <p>
-                    {customer(job.customer_id)?.full_name}
-                  </p>
-
-                  <small>{job.address}</small>
-
-                  <div>
-                    <span className="crew-pill">
-                      {crew(job.crew_id)?.name || "Unassigned"}
-                    </span>
-
-                    <StatusBadge value={job.status} />
-                  </div>
-                </article>
-              ))}
+            {data.jobs.filter((job) => job.status === status).map((job) => (
+              <article className="job-card" key={job.id} onClick={() => setSelectedId(job.id)}>
+                <div className="job-card-date">
+                  <strong>{job.date ? new Date(`${job.date}T12:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No date'}</strong>
+                  <span>{job.start_time || 'Time TBD'}</span>
+                </div>
+                <h3>{job.title}</h3>
+                <p>{customer(job.customer_id)?.full_name || 'Customer unavailable'}</p>
+                <small>{job.address}</small>
+                <div>
+                  <span className="crew-pill">{crew(job.crew_id)?.name || 'Unassigned'}</span>
+                  <StatusBadge value={job.status} />
+                </div>
+              </article>
+            ))}
           </div>
         ))}
       </div>
 
-      <Modal
-        title="Schedule job"
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          setForm(blank);
-        }}
-      >
+      <Modal title="Schedule job" open={open} onClose={() => !saving && setOpen(false)}>
         <form className="form-grid" onSubmit={save}>
+          {formError ? <p className="form-message error wide" role="alert">{formError}</p> : null}
           <label>
             Customer
-
             <select
               value={form.customer_id}
-              onChange={(e) => {
-                const selectedCustomer = customer(
-                  e.target.value
-                );
-
-                setForm({
-                  ...form,
-                  customer_id: e.target.value,
-                  address:
-                    selectedCustomer?.service_address || "",
-                });
+              onChange={(event) => {
+                const chosen = customer(event.target.value)
+                setForm({ ...form, customer_id: event.target.value, address: chosen?.service_address || '' })
               }}
               required
             >
               <option value="">Select…</option>
-
-              {data.customers.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
+              {data.customers.map((item) => <option value={item.id} key={item.id}>{item.full_name}</option>)}
             </select>
           </label>
-
           <label>
             Crew
-
-            <select
-              value={form.crew_id}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  crew_id: e.target.value,
-                })
-              }
-            >
+            <select value={form.crew_id} onChange={(event) => setForm({ ...form, crew_id: event.target.value })}>
               <option value="">Unassigned</option>
-
-              {data.crews.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              {data.crews.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
           </label>
-
-          <label className="wide">
-            Job title
-
-            <input
-              value={form.title}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  title: e.target.value,
-                })
-              }
-              required
-            />
-          </label>
-
-          <label>
-            Date
-
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  date: e.target.value,
-                })
-              }
-              required
-            />
-          </label>
-
-          <label>
-            Start time
-
-            <input
-              type="time"
-              value={form.start_time}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  start_time: e.target.value,
-                })
-              }
-            />
-          </label>
-
-          <label className="wide">
-            Address
-
-            <input
-              value={form.address}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  address: e.target.value,
-                })
-              }
-            />
-          </label>
-
-          <label className="wide">
-            Foreman notes
-
-            <textarea
-              rows="4"
-              value={form.foreman_notes}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  foreman_notes: e.target.value,
-                })
-              }
-            />
-          </label>
-
-          <label className="wide">
-            Equipment
-
-            <input
-              value={form.equipment}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  equipment: e.target.value,
-                })
-              }
-            />
-          </label>
-
+          <label className="wide">Job title<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
+          <label>Date<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></label>
+          <label>Start time<input type="time" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} /></label>
+          <label className="wide">Address<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+          <label className="wide">Foreman notes<textarea rows="4" value={form.foreman_notes} onChange={(event) => setForm({ ...form, foreman_notes: event.target.value })} /></label>
+          <label className="wide">Equipment<input value={form.equipment} onChange={(event) => setForm({ ...form, equipment: event.target.value })} /></label>
           <div className="form-actions wide">
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => {
-                setOpen(false);
-                setForm(blank);
-              }}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              className="button primary"
-            >
-              Schedule job
-            </button>
+            <button type="button" className="button secondary" disabled={saving} onClick={() => setOpen(false)}>Cancel</button>
+            <button className="button primary" disabled={saving}>{saving ? 'Scheduling…' : 'Schedule job'}</button>
           </div>
         </form>
       </Modal>
 
-      <Modal
-        title={selected?.number || "Job"}
-        open={Boolean(selected)}
-        onClose={() => setSelected(null)}
-      >
+      <Modal title={selected?.number || 'Job'} open={Boolean(selected)} onClose={() => setSelectedId(null)}>
         {selected ? (
           <div className="job-detail">
             <div className="detail-hero">
-              <div>
-                <p className="eyebrow">
-                  {selected.number}
-                </p>
-
-                <h2>{selected.title}</h2>
-
-                <p>
-                  {
-                    customer(selected.customer_id)
-                      ?.full_name
-                  }
-                </p>
-              </div>
-
+              <div><p className="eyebrow">{selected.number}</p><h2>{selected.title}</h2><p>{customer(selected.customer_id)?.full_name}</p></div>
               <StatusBadge value={selected.status} />
             </div>
-
             <div className="detail-grid">
-              <div>
-                <span>Date &amp; time</span>
-
-                <strong>
-                  {selected.date || "Not scheduled"} at{" "}
-                  {selected.start_time || "No time"}
-                </strong>
-              </div>
-
-              <div>
-                <span>Crew</span>
-
-                <strong>
-                  {crew(selected.crew_id)?.name ||
-                    "Unassigned"}
-                </strong>
-              </div>
-
-              <div>
-                <span>Address</span>
-
-                <strong>
-                  {selected.address || "Not specified"}
-                </strong>
-              </div>
-
-              <div>
-                <span>Equipment</span>
-
-                <strong>
-                  {selected.equipment || "Not specified"}
-                </strong>
-              </div>
+              <div><span>Date & time</span><strong>{selected.date || 'Not scheduled'} at {selected.start_time || 'Time TBD'}</strong></div>
+              <div><span>Crew</span><strong>{crew(selected.crew_id)?.name || 'Unassigned'}</strong></div>
+              <div><span>Address</span><strong>{selected.address || 'Not provided'}</strong></div>
+              <div><span>Equipment</span><strong>{selected.equipment || 'Not specified'}</strong></div>
             </div>
-
-            <div className="scope-preview">
-              <span>Foreman brief</span>
-
-              <p>
-                {selected.foreman_notes || "No notes."}
-              </p>
-            </div>
-
+            <div className="scope-preview"><span>Foreman brief</span><p>{selected.foreman_notes || 'No notes.'}</p></div>
             <label>
               Status
-
-              <select
-                value={selected.status}
-                onChange={(e) =>
-                  updateStatus(e.target.value)
-                }
-              >
-                <option value="scheduled">
-                  scheduled
-                </option>
-
-                <option value="in progress">
-                  in progress
-                </option>
-
-                <option value="completed">
-                  completed
-                </option>
-
-                <option value="cancelled">
-                  cancelled
-                </option>
+              <select value={selected.status} onChange={(event) => changeStatus(event.target.value)}>
+                <option>scheduled</option><option>in progress</option><option>completed</option><option>cancelled</option>
               </select>
             </label>
-
-            <label>
-              Completion notes
-
-              <textarea
-                key={selected.id}
-                rows="4"
-                defaultValue={
-                  selected.completion_notes || ""
-                }
-                onBlur={(e) =>
-                  update("jobs", selected.id, {
-                    completion_notes: e.target.value,
-                  })
-                }
-              />
-            </label>
-
+            <label>Completion notes<textarea rows="4" defaultValue={selected.completion_notes} onBlur={(event) => updateAndWait('jobs', selected.id, { completion_notes: event.target.value }).catch(() => window.alert('Completion notes could not be saved.'))} /></label>
             <div className="form-actions">
-              <button
-                type="button"
-                className="button danger"
-                onClick={deleteJob}
-              >
-                Delete job
-              </button>
-
-              <button
-                type="button"
-                className="button secondary"
-                onClick={() =>
-                  window.open(
-                    `/tablet?job=${selected.id}`,
-                    "_blank"
-                  )
-                }
-              >
-                Open field view
-              </button>
-
-              <button
-                type="button"
-                className="button primary"
-                onClick={() => setSelected(null)}
-              >
-                Save &amp; close
-              </button>
+              <button className="button secondary" onClick={() => window.open(`/tablet?job=${selected.id}`, '_blank')}>Open field view</button>
+              <button className="button primary" onClick={() => setSelectedId(null)}>Save & close</button>
             </div>
           </div>
         ) : null}
       </Modal>
     </section>
-  );
+  )
 }

@@ -3,3 +3,7 @@ project_id = "valid-tree-operations"
 verify_jwt = true
 [functions.send-signature-link]
 verify_jwt = true
+[functions.create-stripe-checkout]
+verify_jwt = false
+[functions.stripe-webhook]
+verify_jwt = false

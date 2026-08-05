@@ -1,3 +1,47 @@
-import { Link } from 'react-router-dom';import { useWorkspace } from '../data/WorkspaceProvider';import StatusBadge from '../components/StatusBadge'
-const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})
-export default function DashboardPage(){const {data,customer,crew,update}=useWorkspace();const openEst=data.estimates.filter(x=>['draft','sent'].includes(x.status)).reduce((s,x)=>s+x.amount,0);const outstanding=data.invoices.reduce((s,x)=>s+Math.max(x.amount-x.paid,0),0);const signed=data.contracts.filter(x=>x.status==='signed').length;const upcoming=[...data.jobs].filter(x=>x.status!=='completed').sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);return <section><div className="hero-strip"><div><p className="eyebrow light">GOOD MORNING</p><h1>Run today with confidence.</h1><p>Everything that needs attention across customers, crews, and cash flow.</p></div><div className="hero-actions"><Link className="button pale" to="/ai">✦ Create with AI</Link><Link className="button ghost-light" to="/tablet">Open tablet mode</Link></div></div><div className="metrics"><article><span>Pipeline value</span><strong>{money(openEst)}</strong><small>{data.estimates.filter(x=>x.status==='sent').length} estimates waiting</small></article><article><span>Outstanding balance</span><strong>{money(outstanding)}</strong><small>{data.invoices.filter(x=>x.status==='overdue').length} overdue invoice</small></article><article><span>Signed contracts</span><strong>{signed}</strong><small>{data.contracts.filter(x=>x.status==='sent').length} awaiting signature</small></article><article><span>Active crews</span><strong>{data.crews.filter(x=>x.foreman!=='Unassigned').length}</strong><small>{data.jobs.filter(x=>x.status==='scheduled').length} jobs scheduled</small></article></div><div className="dashboard-grid"><article className="panel"><div className="panel-head"><div><p className="eyebrow">ACTION CENTER</p><h2>What needs attention</h2></div><Link to="/ai">AI recommendations →</Link></div><div className="task-list">{data.tasks.filter(x=>!x.done).map(t=><div className="task" key={t.id}><button className="check" onClick={()=>update('tasks',t.id,{done:true})}>✓</button><div><strong>{t.title}</strong><span>{customer(t.customer_id)?.full_name||t.assigned_to} · Due {t.due_date}</span></div><StatusBadge value={t.type.replace('_',' ')}/></div>)}</div></article><article className="panel"><div className="panel-head"><div><p className="eyebrow">NEXT UP</p><h2>Upcoming jobs</h2></div><Link to="/schedule">Full schedule →</Link></div><div className="job-mini-list">{upcoming.map(j=><Link to="/jobs" className="job-mini" key={j.id}><div className="date-tile"><strong>{new Date(j.date+'T12:00').toLocaleDateString('en-US',{day:'2-digit'})}</strong><span>{new Date(j.date+'T12:00').toLocaleDateString('en-US',{month:'short'})}</span></div><div><strong>{j.title}</strong><span>{customer(j.customer_id)?.full_name} · {j.start_time}</span><small>{crew(j.crew_id)?.name}</small></div><StatusBadge value={j.status}/></Link>)}</div></article></div><div className="quick-grid"><Link to="/customers"><b>＋</b><div><strong>New customer</strong><span>Start a customer record</span></div></Link><Link to="/estimates"><b>⌁</b><div><strong>Build estimate</strong><span>Price and send work</span></div></Link><Link to="/contracts"><b>▤</b><div><strong>New contract</strong><span>Generate and collect signature</span></div></Link><Link to="/tablet"><b>▣</b><div><strong>Field handoff</strong><span>Send a crew prepared</span></div></Link></div></section>}
+import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useWorkspace } from '../data/WorkspaceProvider'
+import { companyFinancials, jobFinancials, money, sum } from '../lib/operations'
+import { ErrorBanner, Metric, PageHeader } from '../components/OperationsUI'
+
+export default function DashboardPage() {
+  const ws = useWorkspace()
+  const totals = useMemo(() => companyFinancials(ws.data), [ws.data])
+  const active = ws.data.jobs.filter((job) => !['completed', 'cancelled'].includes(job.status))
+  const receivables = sum(ws.data.invoices.filter((invoice) => invoice.status !== 'void'), (invoice) => Math.max(Number(invoice.amount) - Number(invoice.paid), 0))
+
+  return <div className="operations-page">
+    <PageHeader eyebrow="Houston operations center" title="Command Dashboard">
+      <div className="quick-links"><Link className="button primary" to="/estimates">New estimate</Link><Link className="button secondary" to="/field-reports">Field report</Link></div>
+    </PageHeader>
+    <ErrorBanner message={ws.syncError} />
+    <section className="metric-grid five">
+      <Metric label="Cash collected" value={money(totals.cashCollected)} note="Payments actually received" />
+      <Metric label="Direct job costs" value={money(totals.actualCost)} note="Expenses linked to jobs" />
+      <Metric label="Company overhead" value={money(totals.overheadExpenses)} note="General expenses not linked to a job" />
+      <Metric label="Cash after costs" value={money(totals.cashAfterCosts)} note={`${totals.cashMargin.toFixed(1)}% of collected cash remains`} tone={totals.cashAfterCosts >= 0 ? 'success' : 'danger'} />
+      <Metric label="Receivables" value={money(receivables)} />
+    </section>
+    <div className="module-grid">
+      <section className="panel full-span">
+        <div className="panel-title"><h2>Active job health</h2><Link to="/costing">Open costing</Link></div>
+        <div className="data-table"><div className="table-head"><span>Job</span><span>Progress</span><span>Budget</span><span>Actual</span><span>Projected profit</span></div>{active.map((job) => {
+          const f = jobFinancials(job, ws.data)
+          return <div className="table-row" key={job.id}><span><strong>{job.title}</strong><small>{job.number} · {ws.customer(job.customer_id)?.full_name}</small></span><span><div className="progress"><i style={{ width: `${job.completion_percent || 0}%` }} /></div>{Number(job.completion_percent || 0).toFixed(0)}%</span><span>{money(f.budget)}</span><span className={f.budgetVariance < 0 ? 'negative' : ''}>{money(f.actualCost)}</span><span className={f.profit >= 0 ? 'positive' : 'negative'}>{money(f.profit)}</span></div>
+        })}</div>
+      </section>
+      <section className="panel">
+        <div className="panel-title"><h2>Where the money is going</h2><Link to="/expenses">Open expenses</Link></div>
+        <div className="stat-list"><div><span>Cash actually collected</span><strong>{money(totals.cashCollected)}</strong></div><div><span>Direct job costs</span><strong>{money(totals.actualCost)}</strong></div><div><span>Company overhead</span><strong>{money(totals.overheadExpenses)}</strong></div><div><span>Total business costs</span><strong>{money(totals.totalActualCost)}</strong></div><div><span>Cash remaining after costs</span><strong className={totals.cashAfterCosts >= 0 ? 'positive' : 'negative'}>{money(totals.cashAfterCosts)}</strong></div><div><span>Contracted / projected job revenue</span><strong>{money(totals.revenue)}</strong></div></div>
+      </section>
+      <section className="panel">
+        <div className="panel-title"><h2>Today’s priorities</h2><Link to="/schedule">Schedule</Link></div>
+        <div className="record-list">{ws.data.tasks.filter((task) => !task.done).slice(0, 6).map((task) => <button className="record-row actionable" key={task.id} onClick={() => ws.updateAndWait('tasks', task.id, { done: true })}><div><strong>{task.title}</strong><small>{task.due_date} · {task.assigned_label}</small></div><span>Mark done</span></button>)}</div>
+      </section>
+      <section className="panel">
+        <h2>Attention needed</h2>
+        <div className="alert-list">{ws.data.equipment.filter((item) => item.status === 'maintenance' || (item.next_service_hours && Number(item.current_hours) >= Number(item.next_service_hours))).map((item) => <Link to="/fleet" key={item.id}>Service due: {item.name}</Link>)}{ws.data.invoices.filter((item) => item.status === 'overdue').map((item) => <Link to="/invoices" key={item.id}>Overdue invoice {item.number}</Link>)}{!ws.data.invoices.some((x) => x.status === 'overdue') && !ws.data.equipment.some((x) => x.status === 'maintenance') ? <p className="muted">No urgent exceptions.</p> : null}</div>
+      </section>
+    </div>
+  </div>
+}

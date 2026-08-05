@@ -5,7 +5,12 @@ const AuthContext = createContext(null)
 async function ensureFirstOwner(user) {
   if (!supabase || !user) return
   const { data } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
-  if (!data) await supabase.rpc('bootstrap_owner', { p_full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner' })
+  if (!data) {
+    const { error } = await supabase.rpc('bootstrap_owner', { p_full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner' })
+    // Once an owner exists, new authenticated users remain unlinked until the
+    // owner connects their email from Team & Crews. That is expected.
+    if (error && !/already been completed/i.test(error.message || '')) throw error
+  }
 }
 
 export function AuthProvider({ children }) {
