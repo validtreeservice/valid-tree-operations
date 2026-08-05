@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../components/AuthProvider'
 import { supabase } from '../lib/supabase'
 
@@ -78,15 +78,13 @@ export function WorkspaceProvider({ children }) {
   const [loading, setLoading] = useState(false)
   const [syncError, setSyncError] = useState('')
   const [ownerId, setOwnerId] = useState(null)
+  const mutationRevision = useRef(0)
 
   const loadLive = useCallback(async () => {
     if (!supabase || !user || isDemo) return
+    const revisionAtStart = mutationRevision.current
     setLoading(true); setSyncError('')
     try {
-      const { data: profile, error: profileError } = await supabase.from('profiles').select('owner_id, role, active').eq('id', user.id).maybeSingle()
-      if (profileError) throw profileError
-      if (!profile) throw new Error('This login is not connected to the Valid Tree Service company workspace. The owner must open Team & Crews, enter this login email under Staff Access, choose Office, and click Connect staff account. Then sign out and sign back in.')
-      if (!profile.active) throw new Error('This staff login is inactive. Ask the company owner to reactivate it before continuing.')
       const { data: liveOwnerId, error: ownerError } = await supabase.rpc('current_owner_id')
       if (ownerError) throw ownerError
       const resolvedOwner = liveOwnerId || user.id
@@ -98,7 +96,9 @@ export function WorkspaceProvider({ children }) {
         if (result.error) throw new Error(`${collections[index]}: ${result.error.message}`)
         next[collections[index]] = result.data || []
       })
-      setData(next)
+      // A save may finish while this request is loading. Never let an older
+      // response replace a newly saved job (or any other newly saved record).
+      if (revisionAtStart === mutationRevision.current) setData(next)
     } catch (error) {
       setSyncError(error.message || 'Unable to synchronize operations data.')
     } finally {
@@ -113,26 +113,50 @@ export function WorkspaceProvider({ children }) {
     setSyncError('')
     if (action === 'add') {
       const record = { id: uid(), created_at: iso(), ...idOrItem }
-      setData((current) => ({ ...current, [collection]: [record, ...(current[collection] || [])] }))
       if (!isDemo && supabase && user) {
-        const { error } = await supabase.from(collection).insert({ ...record, owner_id: ownerId || user.id })
-        if (error) { setSyncError(error.message); await loadLive(); throw error }
+        mutationRevision.current += 1
+        let resolvedOwner = ownerId
+        if (!resolvedOwner) {
+          const { data: liveOwnerId, error: ownerError } = await supabase.rpc('current_owner_id')
+          if (ownerError) { setSyncError(ownerError.message); throw ownerError }
+          resolvedOwner = liveOwnerId || user.id
+          setOwnerId(resolvedOwner)
+        }
+        const { data: saved, error } = await supabase
+          .from(collection)
+          .insert({ ...record, owner_id: resolvedOwner })
+          .select('*')
+          .single()
+        if (error) { setSyncError(error.message); throw error }
+        setData((current) => ({
+          ...current,
+          [collection]: [saved, ...(current[collection] || []).filter((item) => item.id !== saved.id)],
+        }))
+        return saved
       }
+      mutationRevision.current += 1
+      setData((current) => ({ ...current, [collection]: [record, ...(current[collection] || [])] }))
       return record
     }
     if (action === 'update') {
-      setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === idOrItem ? { ...item, ...patch } : item) }))
       if (!isDemo && supabase) {
-        const { error } = await supabase.from(collection).update(patch).eq('id', idOrItem)
-        if (error) { setSyncError(error.message); await loadLive(); throw error }
+        mutationRevision.current += 1
+        const { data: saved, error } = await supabase.from(collection).update(patch).eq('id', idOrItem).select('*').single()
+        if (error) { setSyncError(error.message); throw error }
+        setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === idOrItem ? saved : item) }))
+        return saved
       }
+      mutationRevision.current += 1
+      setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === idOrItem ? { ...item, ...patch } : item) }))
       return { id: idOrItem, ...patch }
     }
-    setData((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== idOrItem) }))
     if (!isDemo && supabase) {
+      mutationRevision.current += 1
       const { error } = await supabase.from(collection).delete().eq('id', idOrItem)
-      if (error) { setSyncError(error.message); await loadLive(); throw error }
+      if (error) { setSyncError(error.message); throw error }
     }
+    mutationRevision.current += 1
+    setData((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== idOrItem) }))
     return true
   }, [isDemo, user, ownerId, loadLive])
 
