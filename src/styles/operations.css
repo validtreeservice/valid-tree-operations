@@ -11,3 +11,38 @@
 .invoice-actions a.button{text-decoration:none}.invoice-actions .danger{border-color:#e1b2ad;color:#9d3434}.receipt-page{min-height:100vh;padding:28px;background:#eef3ec}.receipt-document{max-width:820px;margin:0 auto;padding:34px;border:1px solid #dce5da;border-radius:16px;background:#fff;box-shadow:0 18px 55px rgba(18,43,27,.1)}.receipt-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:5px solid #7faa46}.receipt-header img{width:110px;height:82px;object-fit:contain}.receipt-company{text-align:right}.receipt-company strong{display:block;color:#132b1b;font-size:22px}.receipt-company span{display:block;margin-top:4px;color:#687369}.receipt-title{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:28px 0}.receipt-title h1{margin:3px 0 0;color:#132b1b;font-size:34px}.receipt-status{padding:7px 11px;border-radius:999px;background:#e4f2d8;color:#397522;font-size:11px;font-weight:850;text-transform:uppercase}.receipt-status.open{background:#fff2df;color:#935817}.receipt-status.void{background:#f5e5e3;color:#9d3434}.receipt-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.receipt-box{padding:16px;border:1px solid #dce5da;border-radius:11px}.receipt-box span{display:block;margin-bottom:8px;color:#687369;font-size:10px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}.receipt-box strong,.receipt-box small{display:block}.receipt-box small{margin-top:5px;color:#687369}.receipt-totals{margin:24px 0;border-top:1px solid #dce5da}.receipt-total-row{display:flex;justify-content:space-between;padding:12px;border-bottom:1px solid #dce5da}.receipt-total-row.balance{background:#f1f7ed;color:#132b1b;font-size:18px;font-weight:850}.receipt-payments{margin-top:24px}.receipt-payments h2{font-size:18px}.receipt-payment{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;padding:11px 0;border-bottom:1px solid #e3e9e2}.receipt-actions{display:flex;justify-content:center;margin-top:28px}.receipt-note{margin-top:20px;color:#687369;font-size:12px;text-align:center}.receipt-error{max-width:600px;margin:80px auto;padding:30px;text-align:center}.receipt-error img{width:120px}.receipt-error h1{color:#132b1b}.receipt-error p{color:#687369}
 @media(max-width:620px){.receipt-page{padding:0;background:#fff}.receipt-document{padding:22px;border:0;border-radius:0;box-shadow:none}.receipt-header,.receipt-title{align-items:flex-start;flex-direction:column}.receipt-company{text-align:left}.receipt-grid{grid-template-columns:1fr}.receipt-payment{grid-template-columns:1fr}.receipt-title h1{font-size:28px}}
 @media print{.receipt-page{padding:0;background:#fff}.receipt-document{max-width:none;padding:0;border:0;box-shadow:none}.receipt-actions{display:none!important}}
+
+.availability-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,.85fr);gap:18px;margin-bottom:24px}
+.availability-form,.availability-list{padding:22px;border:1px solid #dce5da;border-radius:15px;background:#fff;box-shadow:0 8px 26px rgba(20,45,28,.05)}
+.availability-form h2,.availability-list h2{margin-top:0}
+.availability-form>p{color:#687369;line-height:1.55}
+.availability-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #e3e9e2}
+.availability-card strong,.availability-card span{display:block}
+.availability-card span{margin-top:4px;color:#687369;font-size:12px}
+.availability-card .row-actions{display:flex;gap:7px}
+.row-actions .danger{border-color:#e5b9b4;background:#fff7f6;color:#9d3434}
+.row-actions .danger:hover{background:#fbe9e7}
+.availability-card button{padding:8px 10px;border:1px solid #d6dfd4;border-radius:7px;background:#f3f7f0;color:#365729;font-weight:750;cursor:pointer}
+.public-document-page{min-height:100vh;padding:28px;background:#eef3ec}
+.public-document{max-width:820px;margin:0 auto;padding:34px;border:1px solid #dce5da;border-radius:16px;background:#fff;box-shadow:0 18px 55px rgba(18,43,27,.1)}
+.public-document-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:5px solid #7faa46;text-align:right;line-height:1.5}
+.public-document-header img{width:110px;height:82px;object-fit:contain}
+.public-document h1{color:#132b1b;font-size:clamp(30px,5vw,44px)}
+.public-document-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+.public-document-grid section{display:grid;gap:5px;padding:16px;border:1px solid #dce5da;border-radius:11px}
+.public-document-grid small{color:#687369;font-size:10px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.public-document-grid span{color:#687369}
+.public-scope{min-height:110px;padding:16px;border:1px solid #dce5da;border-radius:11px;line-height:1.55}
+.public-price{display:flex;align-items:center;justify-content:space-between;margin:22px 0;padding:18px;border-radius:11px;background:#f1f7ed;font-size:18px}
+.public-price strong{font-size:27px}
+.public-help{color:#536256;line-height:1.6}
+.sunday-note,.sunday-notice{padding:11px 13px;border:1px solid #ead4a8;border-radius:9px;background:#fff9eb;color:#76551c;font-weight:750;text-align:center}
+.customer-schedule-panel{margin-top:20px;padding:20px;border:1px solid #cfe0c6;border-radius:13px;background:#f7fbf4}
+.customer-schedule-panel h2{margin-top:0}
+.schedule-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+.schedule-choice{display:grid;gap:4px;padding:14px;border:1px solid #cbd9c6;border-radius:10px;background:#fff;color:#17301e;text-align:left;cursor:pointer}
+.schedule-choice:hover{border-color:#7faa46;background:#f2f8ed}
+.schedule-choice strong,.schedule-choice span{display:block}
+.schedule-choice span{color:#687369;font-size:12px}
+.schedule-confirmed{padding:15px;border-radius:10px;background:#e7f4dc;color:#2f6824;font-weight:750;text-align:center}
+@media(max-width:760px){.availability-layout,.public-document-grid,.schedule-choice-grid{grid-template-columns:1fr}.availability-card{align-items:flex-start;flex-direction:column}.public-document-page{padding:0;background:#fff}.public-document{padding:22px;border:0;border-radius:0;box-shadow:none}.public-document-header{align-items:flex-start;flex-direction:column;text-align:left}}

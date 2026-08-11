@@ -52,7 +52,7 @@ const seed = {
   daily_reports: [], production_logs: [], equipment_assignments: [],
   fuel_logs: [{ id: 'f1', job_id: 'j1', equipment_id: 'eq1', fuel_date: today(), fuel_type: 'diesel', gallons: 42, price_per_gallon: 3.45, total_cost: 144.9, vendor: 'Fuel Stop', created_at: iso() }],
   equipment: [{ id: 'eq1', name: 'Brush Chipper', type: 'chipper', make: 'Bandit', model: '', ownership: 'financed', status: 'assigned', current_hours: 1280, hourly_cost: 42, payment_amount: 2200, payment_frequency: 'monthly', next_service_hours: 1300, created_at: addDays(-200) }],
-  maintenance_records: [], rentals: [], change_orders: [], payments: [],
+  maintenance_records: [], rentals: [], change_orders: [], payments: [], schedule_slots: [],
   workers: [],
   worker_payments: [],
   estimator_scenarios: [], settings: defaultSettings,
@@ -62,7 +62,7 @@ const collections = [
   'customers', 'estimates', 'contracts', 'jobs', 'invoices', 'crews', 'tasks', 'job_photos',
   'job_budgets', 'expenses', 'time_entries', 'daily_reports', 'production_logs', 'equipment',
   'equipment_assignments', 'fuel_logs', 'maintenance_records', 'rentals', 'change_orders',
-  'payments', 'workers', 'worker_payments', 'estimator_scenarios',
+  'payments', 'workers', 'worker_payments', 'estimator_scenarios', 'schedule_slots',
 ]
 
 const settingsFromDb = (s) => s ? ({

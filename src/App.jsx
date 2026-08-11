@@ -25,12 +25,14 @@ import SearchPage from './pages/SearchPage'
 import WorkerPaymentsPage from './pages/WorkerPaymentsPage'
 import ExpensesPage from './pages/ExpensesPage'
 import ReceiptPage from './pages/ReceiptPage'
+import PublicEstimatePage from './pages/PublicEstimatePage'
 
 export default function App() {
   return <AuthProvider><WorkspaceProvider><Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/sign/:token" element={<SignContractPage />} />
-    <Route path="/receipt/:token" element={<ReceiptPage />} />
+        <Route path="/receipt/:token" element={<ReceiptPage />} />
+        <Route path="/estimate/:token" element={<PublicEstimatePage />} />
     <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
       <Route index element={<DashboardPage />} />
       <Route path="/customers" element={<CustomersPage />} />
