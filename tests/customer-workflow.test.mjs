@@ -44,3 +44,12 @@ test("office users can safely delete an estimate while preserving its contract",
   assert.match(estimates, /contract will be preserved/i);
   assert.match(estimates, /'Delete'/);
 });
+
+test("office users can edit an unsigned sent contract without replacing its signing link", async () => {
+  const contracts = await read("../src/pages/ContractsPage.jsx");
+  assert.match(contracts, /!contract\.signature_data && !contract\.signed_at/);
+  assert.match(contracts, /\['draft', 'sent'\]\.includes\(contract\.status\)/);
+  assert.match(contracts, /updateAndWait\('contracts', editing\.id/);
+  assert.match(contracts, /The existing signing link will stay the same/);
+  assert.match(contracts, />Edit contract</);
+});
