@@ -38,6 +38,8 @@
 .public-help{color:#536256;line-height:1.6}
 .sunday-note,.sunday-notice{padding:11px 13px;border:1px solid #ead4a8;border-radius:9px;background:#fff9eb;color:#76551c;font-weight:750;text-align:center}
 .customer-schedule-panel{margin-top:20px;padding:20px;border:1px solid #cfe0c6;border-radius:13px;background:#f7fbf4}
+.zelle-instructions{margin-top:20px;padding:18px;border:1px solid #d9c9ef;border-radius:13px;background:#fbf8ff;text-align:left}.zelle-instructions img{display:block;width:min(100%,440px);max-height:520px;margin:14px auto;object-fit:contain;border-radius:10px;background:#fff}.zelle-instructions h2,.zelle-instructions h3{margin-top:0}.receipt-zelle{break-inside:avoid;page-break-inside:avoid}.form-actions .danger{border-color:#e1b2ad;color:#9d3434}
+.deposit-required-notice{padding:14px;border:1px solid #e5b95d;border-radius:10px;background:#fff8e7;color:#674914}.deposit-required-notice strong{display:block;margin-bottom:4px}.deposit-preview{margin-top:-1px;background:#fff8e7}
 .customer-schedule-panel h2{margin-top:0}
 .schedule-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
 .schedule-choice{display:grid;gap:4px;padding:14px;border:1px solid #cbd9c6;border-radius:10px;background:#fff;color:#17301e;text-align:left;cursor:pointer}

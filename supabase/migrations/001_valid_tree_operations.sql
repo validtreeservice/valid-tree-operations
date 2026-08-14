@@ -209,7 +209,7 @@ begin
   values(auth.uid(), auth.uid(), coalesce(nullif(trim(p_full_name),''),'Owner'), 'owner')
   returning * into result;
   insert into public.company_settings(owner_id, phone, email, payment_terms)
-  values(auth.uid(), '(713) 555-0128', auth.jwt()->>'email', 'Balance is due upon completion unless otherwise stated in writing.')
+  values(auth.uid(), '832-445-6535', auth.jwt()->>'email', 'Balance is due upon completion unless otherwise stated in writing.')
   on conflict(owner_id) do nothing;
   return result;
 end $$;

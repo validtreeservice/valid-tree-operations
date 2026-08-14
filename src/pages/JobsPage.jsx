@@ -145,7 +145,7 @@ export default function JobsPage() {
             </select>
           </label>
           <label className="wide">Job title<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
-          <label>Date<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></label>
+          <label>Date<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /><small>Office scheduling includes Sundays.</small></label>
           <label>Start time<input type="time" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} /></label>
           <label className="wide">Address<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
           <label className="wide">Foreman notes<textarea rows="4" value={form.foreman_notes} onChange={(event) => setForm({ ...form, foreman_notes: event.target.value })} /></label>

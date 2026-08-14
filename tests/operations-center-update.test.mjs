@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { depositRate, requiredDeposit } from '../src/lib/depositPolicy.js'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
@@ -40,4 +41,31 @@ test('Zelle is instructional only and never mutates invoice payment totals', asy
     assert.match(source, /will not be marked paid automatically|does not automatically mark/i)
     assert.doesNotMatch(source, /provider:\s*['"]zelle['"]/i)
   }
+})
+
+test('customer booking reserves the entire workday with concurrency protection', async () => {
+  const [migration, signing] = await Promise.all([
+    read('../supabase/migrations/009_exclusive_workday_booking.sql'),
+    read('../src/pages/SignContractPage.jsx'),
+  ])
+  assert.match(migration, /generate_series\(current_date, current_date \+ 550/i)
+  assert.match(migration, /extract\(dow from day\) between 1 and 6/i)
+  assert.match(migration, /not exists[\s\S]*existing\.date = s\.slot_date/i)
+  assert.match(migration, /pg_advisory_xact_lock\(hashtext\(c\.owner_id::text \|\| ':' \|\| s\.slot_date::text\)\)/i)
+  assert.match(signing, /entire day is held for your project/i)
+  assert.match(signing, /Reserve this entire workday/)
+})
+
+test('automatic deposit tiers use exact boundary rules and server enforcement', async () => {
+  assert.equal(requiredDeposit(1499.99), 0)
+  assert.equal(requiredDeposit(1500), 0)
+  assert.equal(depositRate(1500.01), 0.30)
+  assert.equal(requiredDeposit(1500.01), 450)
+  assert.equal(requiredDeposit(5000), 1500)
+  assert.equal(depositRate(5000.01), 0.35)
+  assert.equal(requiredDeposit(5000.01), 1750)
+  const migration = await read('../supabase/migrations/010_automatic_deposit_policy.sql')
+  assert.match(migration, /when coalesce\(p_total, 0\) > 5000 then greatest\(p_total, 0\) \* 0\.35/i)
+  assert.match(migration, /when coalesce\(p_total, 0\) > 1500 then greatest\(p_total, 0\) \* 0\.30/i)
+  assert.match(migration, /before insert or update of total_price, deposit, signed_at/i)
 })

@@ -1,11 +1,12 @@
-VALID TREE SERVICE OPERATIONS — VERIFICATION
+VALID TREE SERVICE OPERATIONS 2.4.0 - VERIFICATION
 
-Completed:
-- Every JavaScript and JSX source file parsed successfully with the Babel parser.
-- Supabase schema was rewritten for a fresh production project with owner-scoped Row Level Security.
-- Public contract signing uses token-specific security-definer RPC functions instead of exposing the contracts table to anonymous users.
-- AI and signature-delivery Edge Function source files are included.
-- The project contains no secret server credentials.
+Passed on 2026-08-13:
+- Project structure check: passed.
+- Automated test suite: 18 of 18 passed, including deposit boundary and server-enforcement coverage.
+- JavaScript/JSX parser validation: 45 of 45 source files passed.
+- New regression coverage verifies the company phone, exclusive post-signing Monday-Saturday customer workday booking, concurrency protection, staff Sunday scheduling, server-enforced contract void/delete behavior, and non-automatic Zelle accounting.
+- Stripe checkout and webhook sources were preserved unchanged.
+- The supplied Zelle image is included at public/zelle-qr.jpg.
 
-Environment limitation:
-A full Vite production build could not be completed inside the Linux artifact environment because npm dependency installation repeatedly timed out, while the uploaded node_modules contained Windows-only Rollup binaries. On the user's Windows computer, run npm.cmd install and npm.cmd run build. Any resulting error should be addressed before production deployment.
+Build environment note:
+The production bundler reached the application build but this managed Windows test environment blocks child-process creation (spawn EPERM), which the installed esbuild binary requires. This is an environment restriction, not a source-code or test failure. Run BUILD-PRODUCTION.bat on the installation computer before deployment; it performs npm install and npm run build and must finish successfully.

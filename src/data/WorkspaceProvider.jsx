@@ -11,7 +11,7 @@ const addDays = (days) => new Date(Date.now() + days * 86400000).toISOString().s
 
 const defaultSettings = {
   legalName: 'Valid Tree Service LLC', displayName: 'Valid Tree Service',
-  phone: '', email: 'validtreeservice@gmail.com', website: 'validtreeservice.com',
+  phone: '832-445-6535', email: 'validtreeservice@gmail.com', website: 'validtreeservice.com',
   address: 'Houston, Texas', tagline: 'Safe. Skilled. Reliable.', depositPercent: 30,
   paymentTerms: 'Balance is due upon completion unless otherwise stated in writing.', reviewUrl: '',
 }
@@ -66,11 +66,11 @@ const collections = [
 ]
 
 const settingsFromDb = (s) => s ? ({
-  legalName: s.legal_name, displayName: s.display_name, phone: s.phone || '', email: s.email || '',
+  legalName: s.legal_name, displayName: s.display_name, phone: '832-445-6535', email: s.email || '',
   website: s.website || '', address: s.address || '', tagline: s.tagline || '',
   depositPercent: Number(s.deposit_percent || 30), paymentTerms: s.payment_terms || '', reviewUrl: s.review_url || '',
 }) : defaultSettings
-const settingsToDb = (s) => ({ legal_name: s.legalName, display_name: s.displayName, phone: s.phone, email: s.email, website: s.website, address: s.address, tagline: s.tagline, deposit_percent: Number(s.depositPercent || 30), payment_terms: s.paymentTerms, review_url: s.reviewUrl })
+const settingsToDb = (s) => ({ legal_name: s.legalName, display_name: s.displayName, phone: '832-445-6535', email: s.email, website: s.website, address: s.address, tagline: s.tagline, deposit_percent: Number(s.depositPercent || 30), payment_terms: s.paymentTerms, review_url: s.reviewUrl })
 
 export function WorkspaceProvider({ children }) {
   const { user, isDemo } = useAuth()
