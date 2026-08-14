@@ -1,0 +1,12 @@
+VALID TREE SERVICE OPERATIONS 2.3.0 - VERIFICATION
+
+Passed on 2026-08-13:
+- Project structure check: passed.
+- Automated test suite: 16 of 16 passed.
+- JavaScript/JSX parser validation: 44 of 44 source files passed.
+- New regression coverage verifies the company phone, post-signing Monday-Saturday customer booking, staff Sunday scheduling, server-enforced contract void/delete behavior, and non-automatic Zelle accounting.
+- Stripe checkout and webhook sources were preserved unchanged.
+- The supplied Zelle image is included at public/zelle-qr.jpg.
+
+Build environment note:
+The production bundler reached the application build but this managed Windows test environment blocks child-process creation (spawn EPERM), which the installed esbuild binary requires. This is an environment restriction, not a source-code or test failure. Run BUILD-PRODUCTION.bat on the installation computer before deployment; it performs npm install and npm run build and must finish successfully.
