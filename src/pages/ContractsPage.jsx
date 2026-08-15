@@ -104,13 +104,11 @@ export default function ContractsPage() {
     }
   }
 
-  async function removeOrVoid(contract) {
+  async function voidContract(contract) {
     const relatedJobs = ws.data.jobs.filter((job) => job.contract_id === contract.id)
     const mustRetain = Boolean(contract.signed_at || contract.signature_data || relatedJobs.length)
-    const action = mustRetain ? 'void' : 'delete'
-    const reason = mustRetain
-      ? window.prompt(`This agreement is signed or linked to operational history, so it will be retained as void. Enter a reason for voiding ${contract.contract_number}:`, 'Cancelled by office')
-      : window.confirm(`Permanently delete unsigned, unlinked agreement ${contract.contract_number}?`) ? 'Unsigned agreement entered in error' : ''
+    if (!mustRetain) return
+    const reason = window.prompt(`Enter a reason for voiding ${contract.contract_number}. The agreement will remain in the audit trail:`, 'Cancelled by office')
     if (!reason?.trim()) return
     setActionBusy(true)
     setActionMessage('')
@@ -118,19 +116,57 @@ export default function ContractsPage() {
       if (!ws.isDemo && supabase) {
         const { data, error } = await supabase.rpc('safe_void_or_delete_contract', { p_contract_id: contract.id, p_reason: reason.trim() })
         if (error) throw error
-        setActionMessage(data?.action === 'deleted' ? `${contract.contract_number} was deleted.` : `${contract.contract_number} was voided and retained for the audit trail.`)
+        setActionMessage(data?.action === 'voided' ? `${contract.contract_number} was voided and retained for the audit trail.` : `${contract.contract_number} was deleted.`)
         setSelectedId(null)
         await ws.refresh()
-      } else if (action === 'delete') {
-        await ws.removeAndWait('contracts', contract.id)
-        setSelectedId(null)
-        setActionMessage(`${contract.contract_number} was deleted.`)
       } else {
         await ws.updateAndWait('contracts', contract.id, { status: 'cancelled', voided_at: new Date().toISOString(), void_reason: reason.trim() })
         setActionMessage(`${contract.contract_number} was voided and retained for the audit trail.`)
       }
     } catch (error) {
       setActionMessage(error?.message || 'The agreement could not be changed.')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function permanentlyDeleteContract(contract) {
+    const confirmation = window.prompt(
+      `Permanently delete ${contract.contract_number}?\n\nThis cannot be undone. Any related jobs, invoices, and Stripe payment records will be preserved but unlinked.\n\nType the contract number exactly to continue:`,
+    )
+    if (confirmation !== contract.contract_number) {
+      if (confirmation !== null) setActionMessage('Permanent deletion cancelled because the contract number did not match.')
+      return
+    }
+    if (!window.confirm(`Final confirmation: permanently delete ${contract.contract_number}?`)) return
+
+    setActionBusy(true)
+    setActionMessage('')
+    try {
+      if (!ws.isDemo && supabase) {
+        const { data, error } = await supabase.rpc('permanently_delete_contract', {
+          p_contract_id: contract.id,
+          p_confirmation: confirmation,
+          p_reason: 'Permanently deleted by office from Contracts page',
+        })
+        if (error) throw error
+        const preserved = Number(data?.jobs_preserved || 0) + Number(data?.invoices_preserved || 0) + Number(data?.change_orders_preserved || 0)
+        setActionMessage(`${contract.contract_number} was permanently deleted.${preserved ? ` ${preserved} related record(s) were preserved and unlinked.` : ''}`)
+        setSelectedId(null)
+        await ws.refresh()
+      } else {
+        await ws.removeAndWait('contracts', contract.id)
+        ws.setData((current) => ({
+          ...current,
+          jobs: (current.jobs || []).map((item) => item.contract_id === contract.id ? { ...item, contract_id: null } : item),
+          invoices: (current.invoices || []).map((item) => item.contract_id === contract.id ? { ...item, contract_id: null } : item),
+          change_orders: (current.change_orders || []).map((item) => item.contract_id === contract.id ? { ...item, contract_id: null } : item),
+        }))
+        setSelectedId(null)
+        setActionMessage(`${contract.contract_number} was permanently deleted.`)
+      }
+    } catch (error) {
+      setActionMessage(error?.message || 'The contract could not be permanently deleted.')
     } finally {
       setActionBusy(false)
     }
@@ -187,7 +223,7 @@ export default function ContractsPage() {
         {selected.signature_data ? <div className="saved-signature"><span>Saved customer signature</span><img src={selected.signature_data} alt="Customer electronic signature" /></div> : <p className="signature-warning-box">This contract may say “signed,” but no customer signature image is stored. Open the signing page below and have the customer sign. You do not need to create a new contract.</p>}
         <label>Administrative status<select value={selected.status === 'signed' ? 'signed' : selected.status} disabled={selected.status === 'signed'} onChange={(e) => ws.updateAndWait('contracts', selected.id, { status: e.target.value })}><option>draft</option><option>sent</option>{selected.status === 'signed' ? <option>signed</option> : null}<option>completed</option><option>cancelled</option></select></label>
         {selected.voided_at ? <p className="signature-warning-box">Voided {new Date(selected.voided_at).toLocaleString()}: {selected.void_reason || 'No reason recorded'}</p> : null}
-        <div className="form-actions">{canEdit(selected) ? <button className="button secondary" onClick={() => startEdit(selected)}>Edit contract</button> : null}<button className="button secondary" onClick={() => pdf(selected)}>Print / PDF</button><button className="button secondary" onClick={() => share(selected)}>Copy signature link</button><button className="button primary" onClick={() => openSigning(selected)}>{selected.signature_data ? 'View signed agreement' : 'Open onsite signing'}</button><button className="button secondary" onClick={() => ws.refresh()}>Refresh signatures</button><button className="button secondary danger" disabled={actionBusy || !!selected.voided_at} onClick={() => removeOrVoid(selected)}>{selected.signed_at || selected.signature_data || ws.data.jobs.some((job) => job.contract_id === selected.id) ? 'Void contract' : 'Delete contract'}</button></div>
+        <div className="form-actions">{canEdit(selected) ? <button className="button secondary" onClick={() => startEdit(selected)}>Edit contract</button> : null}<button className="button secondary" onClick={() => pdf(selected)}>Print / PDF</button><button className="button secondary" onClick={() => share(selected)}>Copy signature link</button><button className="button primary" onClick={() => openSigning(selected)}>{selected.signature_data ? 'View signed agreement' : 'Open onsite signing'}</button><button className="button secondary" onClick={() => ws.refresh()}>Refresh signatures</button>{selected.signed_at || selected.signature_data || ws.data.jobs.some((job) => job.contract_id === selected.id) ? <button className="button secondary danger" disabled={actionBusy || !!selected.voided_at} onClick={() => voidContract(selected)}>Void contract</button> : null}<button className="button secondary danger" disabled={actionBusy} onClick={() => permanentlyDeleteContract(selected)}>Delete permanently</button></div>
       </div> : null}
     </Modal>
   </section>

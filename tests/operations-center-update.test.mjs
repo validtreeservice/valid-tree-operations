@@ -34,6 +34,24 @@ test('contract disposition is server-enforced and preserves signed or linked rec
   assert.match(migration, /'contract_voided'/)
 })
 
+test('staff can explicitly permanently delete a contract while preserving linked operational and Stripe records', async () => {
+  const [migration, contracts] = await Promise.all([
+    read('../supabase/migrations/011_permanent_contract_deletion.sql'),
+    read('../src/pages/ContractsPage.jsx'),
+  ])
+  assert.match(migration, /permanently_delete_contract/)
+  assert.match(migration, /coalesce\(p_confirmation, ''\) <> c\.contract_number/i)
+  assert.match(migration, /delete from public\.contracts where id = c\.id/i)
+  assert.match(migration, /jobs_preserved/)
+  assert.match(migration, /invoices_preserved/)
+  assert.match(migration, /change_orders_preserved/)
+  assert.match(migration, /'contract_permanently_deleted'/)
+  assert.doesNotMatch(migration, /delete from public\.(jobs|invoices|payments|change_orders)/i)
+  assert.match(contracts, /Type the contract number exactly to continue/)
+  assert.match(contracts, /Delete permanently/)
+  assert.match(contracts, /Any related jobs, invoices, and Stripe payment records will be preserved but unlinked/)
+})
+
 test('Zelle is instructional only and never mutates invoice payment totals', async () => {
   const [signing, receipt] = await Promise.all([read('../src/pages/SignContractPage.jsx'), read('../src/pages/ReceiptPage.jsx')])
   for (const source of [signing, receipt]) {

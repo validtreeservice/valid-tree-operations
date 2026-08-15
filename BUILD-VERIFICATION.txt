@@ -1,10 +1,10 @@
-VALID TREE SERVICE OPERATIONS 2.4.0 - VERIFICATION
+VALID TREE SERVICE OPERATIONS 2.5.0 - VERIFICATION
 
-Passed on 2026-08-13:
+Passed on 2026-08-14:
 - Project structure check: passed.
-- Automated test suite: 18 of 18 passed, including deposit boundary and server-enforcement coverage.
+- Automated test suite: 19 of 19 passed, including permanent contract deletion, confirmation, preservation, deposit boundary, and server-enforcement coverage.
 - JavaScript/JSX parser validation: 45 of 45 source files passed.
-- New regression coverage verifies the company phone, exclusive post-signing Monday-Saturday customer workday booking, concurrency protection, staff Sunday scheduling, server-enforced contract void/delete behavior, and non-automatic Zelle accounting.
+- New regression coverage verifies that owner/office staff can permanently delete a contract only after exact-number confirmation while related jobs, invoices, change orders, payments, and Stripe identifiers remain intact.
 - Stripe checkout and webhook sources were preserved unchanged.
 - The supplied Zelle image is included at public/zelle-qr.jpg.
 
