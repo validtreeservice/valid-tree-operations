@@ -27,8 +27,8 @@ const seed = {
     { id: 'e2', number: 'EST-2026-0042', customer_id: 'c2', title: 'Canopy reduction and deadwood removal', amount: 1750, status: 'approved', created_at: addDays(-3), expires_at: addDays(27) },
   ],
   contracts: [
-    { id: 'ct1', contract_number: 'VTS-2026-0038', customer_id: 'c2', title: 'Tree Service Agreement', scope_of_work: 'Crown-reduce two mature live oaks.\nRemove hazardous limbs.\nHaul generated debris.', total_price: 1750, deposit: 525, status: 'sent', service_date: addDays(5), created_at: addDays(-2), sign_token: 'demo-sign-0038' },
-    { id: 'ct2', contract_number: 'VTS-2026-0037', customer_id: 'c3', title: 'Community Tree Maintenance Agreement', scope_of_work: 'Remove four declining trees.\nGrind stumps.\nChip and haul debris.', total_price: 8400, deposit: 2520, status: 'signed', service_date: addDays(1), created_at: addDays(-6), sign_token: 'demo-sign-0037', signed_at: addDays(-4), signature_name: 'Oakridge HOA' },
+    { id: 'ct1', contract_number: 'VTS-2026-0038', contract_type: 'tree_service', customer_id: 'c2', title: 'Tree Service Agreement', scope_of_work: 'Crown-reduce two mature live oaks.\nRemove hazardous limbs.\nHaul generated debris.', total_price: 1750, deposit: 525, status: 'sent', service_date: addDays(5), created_at: addDays(-2), sign_token: 'demo-sign-0038' },
+    { id: 'ct2', contract_number: 'VTS-2026-0037', contract_type: 'tree_service', customer_id: 'c3', title: 'Community Tree Maintenance Agreement', scope_of_work: 'Remove four declining trees.\nGrind stumps.\nChip and haul debris.', total_price: 8400, deposit: 2520, status: 'signed', service_date: addDays(1), created_at: addDays(-6), sign_token: 'demo-sign-0037', signed_at: addDays(-4), signature_name: 'Oakridge HOA' },
   ],
   crews: [
     { id: 'crew1', name: 'Crew One', foreman: 'Carlos', phone: '(713) 555-0111', color: '#80a84c', created_at: addDays(-100) },

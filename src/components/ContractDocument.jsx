@@ -1,7 +1,7 @@
 import {
-  CONTRACT_TERMS,
   CONTRACTOR_NAME,
   CONTRACTOR_TITLE,
+  getContractTypeDefinition,
 } from "../lib/contractTerms";
 
 const money = (value) =>
@@ -32,6 +32,7 @@ export default function ContractDocument({
   company = {},
   children,
 }) {
+  const contractType = getContractTypeDefinition(contract.contract_type);
   const balance =
     Number(contract.total_price || 0) - Number(contract.deposit || 0);
 
@@ -57,8 +58,8 @@ export default function ContractDocument({
 
       <div className="sign-title">
         <div>
-          <p>PROFESSIONAL TREE CARE AGREEMENT</p>
-          <h1>{contract.title || "Tree Service Agreement"}</h1>
+          <p>{contractType.agreementLabel.toUpperCase()}</p>
+          <h1>{contract.title || contractType.defaultTitle}</h1>
         </div>
 
         <div>
@@ -128,7 +129,7 @@ export default function ContractDocument({
             gap: "12px 24px",
           }}
         >
-          {CONTRACT_TERMS.map((term, index) => (
+          {contractType.terms.map((term, index) => (
             <p key={term.title} style={{ margin: 0 }}>
               <strong>
                 {index + 1}. {term.title}.

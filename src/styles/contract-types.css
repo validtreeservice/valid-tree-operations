@@ -1,0 +1,82 @@
+.contract-type-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contract-type-picker > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contract-type-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.contract-type-option {
+  min-height: 88px;
+  padding: 13px;
+  border: 1px solid #cbd5c9;
+  border-radius: 11px;
+  background: #f8faf7;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.contract-type-option strong {
+  font-size: 0.88rem;
+}
+
+.contract-type-option small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.contract-type-option:hover,
+.contract-type-option:focus-visible {
+  border-color: #6e9843;
+  box-shadow: 0 0 0 3px rgba(110, 152, 67, 0.16);
+  outline: none;
+}
+
+.contract-type-option.active {
+  border-color: #5f8835;
+  background: #eaf3df;
+  box-shadow: 0 0 0 3px rgba(110, 152, 67, 0.18);
+}
+
+.contract-type-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border: 1px solid #cbd9bd;
+  border-radius: 999px;
+  background: #eef5e7;
+  color: #416322;
+  font-size: 0.69rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .contract-type-options {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-type-option {
+    min-height: 0;
+  }
+}

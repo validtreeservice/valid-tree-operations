@@ -4,12 +4,36 @@ import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
 import { printContract } from '../lib/contractPrint'
-import { CONTRACTOR_NAME, CONTRACTOR_TITLE } from '../lib/contractTerms'
+import { CONTRACTOR_NAME, CONTRACTOR_TITLE, CONTRACT_TYPES, getContractTypeDefinition, normalizeContractType } from '../lib/contractTerms'
 import { supabase } from '../lib/supabase'
 import { depositPolicyLabel, requiredDeposit } from '../lib/depositPolicy'
 
-const blank = { customer_id: '', title: 'Tree Service Agreement', scope_of_work: '', total_price: '', deposit: '', service_date: '', status: 'draft' }
+const blank = { contract_type: 'tree_service', customer_id: '', title: 'Tree Service Agreement', scope_of_work: '', total_price: '', deposit: '', service_date: '', status: 'draft' }
 const money = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+
+function withContractType(current, contractType) {
+  const previousDefinition = getContractTypeDefinition(current.contract_type)
+  const nextDefinition = getContractTypeDefinition(contractType)
+  const title = !current.title?.trim() || current.title === previousDefinition.defaultTitle
+    ? nextDefinition.defaultTitle
+    : current.title
+  return { ...current, contract_type: nextDefinition.key, title }
+}
+
+function ContractTypePicker({ value, onChange }) {
+  return <div className="contract-type-picker wide" role="group" aria-label="Contract type">
+    <span>Contract type</span>
+    <div className="contract-type-options">
+      {Object.values(CONTRACT_TYPES).map((option) => <button
+        key={option.key}
+        type="button"
+        className={`contract-type-option ${value === option.key ? 'active' : ''}`}
+        aria-pressed={value === option.key}
+        onClick={() => onChange(option.key)}
+      ><strong>{option.label}</strong><small>{option.description}</small></button>)}
+    </div>
+  </div>
+}
 
 export default function ContractsPage() {
   const ws = useWorkspace()
@@ -24,7 +48,10 @@ export default function ContractsPage() {
   const [actionMessage, setActionMessage] = useState('')
   const selected = ws.data.contracts.find((item) => item.id === selectedId) || null
   const editing = ws.data.contracts.find((item) => item.id === editingId) || null
-  const next = useMemo(() => `VTS-${new Date().getFullYear()}-${String(ws.data.contracts.length + 39).padStart(4, '0')}`, [ws.data.contracts])
+  const next = useMemo(() => {
+    const definition = getContractTypeDefinition(form.contract_type)
+    return `${definition.numberPrefix}-${new Date().getFullYear()}-${String(ws.data.contracts.length + 39).padStart(4, '0')}`
+  }, [ws.data.contracts, form.contract_type])
 
   useEffect(() => {
     const refresh = () => ws.refresh()
@@ -36,7 +63,7 @@ export default function ContractsPage() {
     event.preventDefault()
     const now = new Date().toISOString()
     const total = Number(form.total_price)
-    const record = ws.add('contracts', { ...form, contract_number: next, total_price: total, deposit: requiredDeposit(total), sign_token: crypto.randomUUID(), signed_at: null, signature_name: null, signature_data: null, contractor_name: CONTRACTOR_NAME, contractor_title: CONTRACTOR_TITLE, contractor_signed_at: now })
+    const record = ws.add('contracts', { ...form, contract_type: normalizeContractType(form.contract_type), contract_number: next, total_price: total, deposit: requiredDeposit(total), sign_token: crypto.randomUUID(), signed_at: null, signature_name: null, signature_data: null, contractor_name: CONTRACTOR_NAME, contractor_title: CONTRACTOR_TITLE, contractor_signed_at: now })
     setForm(blank)
     setOpen(false)
     setSelectedId(record.id)
@@ -57,8 +84,9 @@ export default function ContractsPage() {
     if (!canEdit(contract)) return
     setEditError('')
     setEditForm({
+      contract_type: normalizeContractType(contract.contract_type),
       customer_id: contract.customer_id || '',
-      title: contract.title || 'Tree Service Agreement',
+      title: contract.title || getContractTypeDefinition(contract.contract_type).defaultTitle,
       scope_of_work: contract.scope_of_work || '',
       total_price: String(contract.total_price ?? ''),
       deposit: String(contract.deposit ?? ''),
@@ -88,6 +116,7 @@ export default function ContractsPage() {
     setEditError('')
     try {
       await ws.updateAndWait('contracts', editing.id, {
+        contract_type: normalizeContractType(editForm.contract_type),
         customer_id: editForm.customer_id,
         title: editForm.title.trim(),
         scope_of_work: editForm.scope_of_work.trim(),
@@ -179,7 +208,7 @@ export default function ContractsPage() {
       const captured = Boolean(contract.signature_data)
       return <article key={contract.id}>
         <div className="doc-icon">▤</div>
-        <button className="doc-main" onClick={() => setSelectedId(contract.id)}><span>{contract.contract_number}</span><h3>{contract.title}</h3><p>{ws.customer(contract.customer_id)?.full_name} · {contract.service_date || 'Not scheduled'}</p>{contract.status === 'signed' && !captured ? <small className="signature-warning">Signature still needs to be captured</small> : null}</button>
+        <button className="doc-main" onClick={() => setSelectedId(contract.id)}><span>{contract.contract_number} <em className="contract-type-badge">{getContractTypeDefinition(contract.contract_type).label}</em></span><h3>{contract.title}</h3><p>{ws.customer(contract.customer_id)?.full_name} · {contract.service_date || 'Not scheduled'}</p>{contract.status === 'signed' && !captured ? <small className="signature-warning">Signature still needs to be captured</small> : null}</button>
         <div className="doc-value"><strong>{money(contract.total_price)}</strong><StatusBadge value={captured ? 'signed' : contract.status} /></div>
         <div className="doc-actions"><button onClick={() => pdf(contract)}>PDF</button><button onClick={() => share(contract)}>Copy sign link</button>{canEdit(contract) ? <button onClick={() => startEdit(contract)}>Edit</button> : null}<button className="primary-mini" onClick={() => setSelectedId(contract.id)}>Open</button></div>
       </article>
@@ -187,6 +216,7 @@ export default function ContractsPage() {
 
     <Modal title="New contract" open={open} onClose={() => setOpen(false)}>
       <form className="form-grid" onSubmit={save}>
+        <ContractTypePicker value={form.contract_type} onChange={(value) => setForm(withContractType(form, value))} />
         <label>Contract number<input value={next} disabled /></label>
         <label>Customer<select required value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })}><option value="">Select…</option>{ws.data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.full_name}</option>)}</select></label>
         <label className="wide">Title<input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
@@ -203,6 +233,7 @@ export default function ContractsPage() {
       {editing ? <form className="form-grid" onSubmit={saveEdit}>
         <p className="wide">The existing signing link will stay the same. Anyone opening it will see these updated details.</p>
         {editError ? <p className="form-message error wide">{editError}</p> : null}
+        <ContractTypePicker value={editForm.contract_type} onChange={(value) => setEditForm(withContractType(editForm, value))} />
         <label>Contract number<input value={editing.contract_number || ''} disabled /></label>
         <label>Customer<select required value={editForm.customer_id} onChange={(e) => setEditForm({ ...editForm, customer_id: e.target.value })}><option value="">Select…</option>{ws.data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.full_name}</option>)}</select></label>
         <label className="wide">Title<input required value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} /></label>
@@ -217,7 +248,7 @@ export default function ContractsPage() {
 
     <Modal title={selected?.contract_number || 'Contract'} open={!!selected} onClose={() => setSelectedId(null)}>
       {selected ? <div className="contract-detail">
-        <div className="detail-hero"><div><p className="eyebrow">{selected.contract_number}</p><h2>{selected.title}</h2><p>{ws.customer(selected.customer_id)?.full_name}</p></div><strong>{money(selected.total_price)}</strong></div>
+        <div className="detail-hero"><div><p className="eyebrow">{selected.contract_number} · {getContractTypeDefinition(selected.contract_type).label}</p><h2>{selected.title}</h2><p>{ws.customer(selected.customer_id)?.full_name}</p></div><strong>{money(selected.total_price)}</strong></div>
         <div className="scope-preview"><span>Scope of work</span><p>{selected.scope_of_work}</p></div>
         <div className="detail-grid"><div><span>Deposit</span><strong>{money(selected.deposit)}</strong></div><div><span>Balance</span><strong>{money(selected.total_price - selected.deposit)}</strong></div><div><span>Service date</span><strong>{selected.service_date || 'Not scheduled'}</strong></div><div><span>Customer acceptance</span><strong>{selected.signature_data ? `Signed by ${selected.signature_name}` : 'Signature not captured'}</strong></div><div><span>Contractor acceptance</span><strong>{selected.contractor_name || CONTRACTOR_NAME} · {selected.contractor_signed_at ? new Date(selected.contractor_signed_at).toLocaleDateString() : 'Applied at creation'}</strong></div></div>
         {selected.signature_data ? <div className="saved-signature"><span>Saved customer signature</span><img src={selected.signature_data} alt="Customer electronic signature" /></div> : <p className="signature-warning-box">This contract may say “signed,” but no customer signature image is stored. Open the signing page below and have the customer sign. You do not need to create a new contract.</p>}

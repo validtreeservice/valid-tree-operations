@@ -51,6 +51,7 @@ export default function PublicEstimatePage() {
             customer_id: estimate.customer_id,
             estimate_id: estimate.id,
             contract_number: `VTS-${new Date().getFullYear()}-${String(workspace.data.contracts.length + 1).padStart(4, '0')}`,
+            contract_type: 'tree_service',
             title: estimate.title || 'Tree Service Agreement',
             scope_of_work: estimate.scope || 'Tree service work described in the accepted estimate.',
             total_price: Number(estimate.amount || 0), deposit: requiredDeposit(estimate.amount), status: 'sent', sign_token: signToken,
