@@ -23,8 +23,8 @@ const seed = {
     { id: 'c3', full_name: 'Oakridge HOA', phone: '(281) 555-0104', email: 'board@oakridge.example', service_address: 'Oakridge Community, Houston, TX', notes: 'Commercial account.', created_at: addDays(-40) },
   ],
   estimates: [
-    { id: 'e1', number: 'EST-2026-0041', customer_id: 'c1', title: 'Oak removal and stump grinding', amount: 3850, status: 'sent', created_at: addDays(-8), expires_at: addDays(22) },
-    { id: 'e2', number: 'EST-2026-0042', customer_id: 'c2', title: 'Canopy reduction and deadwood removal', amount: 1750, status: 'approved', created_at: addDays(-3), expires_at: addDays(27) },
+    { id: 'e1', number: 'EST-2026-0041', service_type: 'tree_service', customer_id: 'c1', title: 'Oak removal and stump grinding', amount: 3850, status: 'sent', created_at: addDays(-8), expires_at: addDays(22) },
+    { id: 'e2', number: 'EST-2026-0042', service_type: 'tree_service', customer_id: 'c2', title: 'Canopy reduction and deadwood removal', amount: 1750, status: 'approved', created_at: addDays(-3), expires_at: addDays(27) },
   ],
   contracts: [
     { id: 'ct1', contract_number: 'VTS-2026-0038', contract_type: 'tree_service', customer_id: 'c2', title: 'Tree Service Agreement', scope_of_work: 'Crown-reduce two mature live oaks.\nRemove hazardous limbs.\nHaul generated debris.', total_price: 1750, deposit: 525, status: 'sent', service_date: addDays(5), created_at: addDays(-2), sign_token: 'demo-sign-0038' },

@@ -7,6 +7,7 @@ import { printContract } from '../lib/contractPrint'
 import { CONTRACTOR_NAME, CONTRACTOR_TITLE, CONTRACT_TYPES, getContractTypeDefinition, normalizeContractType } from '../lib/contractTerms'
 import { supabase } from '../lib/supabase'
 import { depositPolicyLabel, requiredDeposit } from '../lib/depositPolicy'
+import { nextDocumentNumber } from '../lib/documentNumbers'
 
 const blank = { contract_type: 'tree_service', customer_id: '', title: 'Tree Service Agreement', scope_of_work: '', total_price: '', deposit: '', service_date: '', status: 'draft' }
 const money = (value) => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -50,7 +51,10 @@ export default function ContractsPage() {
   const editing = ws.data.contracts.find((item) => item.id === editingId) || null
   const next = useMemo(() => {
     const definition = getContractTypeDefinition(form.contract_type)
-    return `${definition.numberPrefix}-${new Date().getFullYear()}-${String(ws.data.contracts.length + 39).padStart(4, '0')}`
+    return nextDocumentNumber(ws.data.contracts, definition.numberPrefix, {
+      field: 'contract_number',
+      floor: definition.key === 'tree_service' ? 38 : 0,
+    })
   }, [ws.data.contracts, form.contract_type])
 
   useEffect(() => {
