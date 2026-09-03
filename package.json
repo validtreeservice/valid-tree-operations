@@ -1,11 +1,12 @@
 {
   "name": "valid-tree-operations",
   "private": true,
-  "version": "2.6.1",
+  "version": "2.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:portable": "node scripts/build-portable.mjs",
     "preview": "vite preview",
     "check": "node scripts/check-project.mjs",
     "parse": "node scripts/check-jsx.mjs",
