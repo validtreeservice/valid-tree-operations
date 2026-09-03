@@ -2,6 +2,9 @@
 export const PROPOSAL_TYPES = ['Commercial Land Clearing', 'Commercial Tree Removal', 'Demolition & Site Clearing', 'Storm/Emergency Work', 'Large Residential Project', 'Custom/Blank Proposal']
 export const PROPOSAL_STATUSES = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired']
 export const ACCEPTANCE_CONSENT = 'I am authorized to accept this proposal for the customer/company named below. I have reviewed the scope, exclusions, price, schedule and payment terms, and agree to use my typed signature as my electronic signature.'
+export const ACCEPTANCE_TERMS = 'By signing or electronically accepting, the undersigned authorized representative accepts this proposal’s scope of work, pricing, payment terms, project conditions, exclusions and all other terms contained in this proposal. The accepted proposal constitutes the parties’ agreement for the described work, unless this proposal expressly requires a separate signed construction contract. The customer authorizes Valid Tree Service LLC to proceed only after the stated deposit, approvals and pre-mobilization requirements have been satisfied and the start date has been confirmed in writing. Acceptance does not waive the asbestos/environmental clearance or other demolition requirements stated in this proposal. Changes to accepted scope, price or terms require a separately approved written revision or change order; the accepted version remains unchanged.'
+export const ELECTRONIC_CONSENT = 'I have reviewed the entire proposal and its acceptance terms. I am the person named below and am authorized to bind the named customer/company. I agree to this transaction electronically and adopt my typed full legal name as my electronic signature. I understand that clicking Confirm acceptance records my acceptance of this proposal. I can download and retain the document, and may contact Valid Tree Service to arrange a paper signature instead.'
+export const SUBMITTED_BY = 'Mark Guerrero'
 export const uid = () => crypto.randomUUID()
 export const todayCentral = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 export const money = value => Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -80,6 +83,7 @@ export function newProposal(type = PROPOSAL_TYPES[0], sixAcres = false) {
 export function customerSnapshot(row, company) {
   const c = row.content
   return {
+    document_version: 2, acceptance_terms: ACCEPTANCE_TERMS, electronic_consent: ELECTRONIC_CONSENT, submitted_by: SUBMITTED_BY,
     number: row.number, project_name: row.project_name, project_address: row.project_address,
     contact_name: row.contact_name, company_name: row.company_name, proposal_date: row.proposal_date,
     expires_at: row.expires_at, proposal_type: row.proposal_type, amount: proposalTotal(c),
