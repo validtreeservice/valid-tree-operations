@@ -5,6 +5,7 @@ import App from './App.jsx'
 import './styles/global.css'
 import './styles/operations.css'
 import './styles/contract-types.css'
+import './styles/proposals.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
