@@ -15,6 +15,8 @@ export default function ProposalsPage() {
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [filter, setFilter] = useState('all'), [search, setSearch] = useState('')
   const [chooseTemplate, setChooseTemplate] = useState(false), [template, setTemplate] = useState(PROPOSAL_TYPES[0])
   const [library, setLibrary] = useState(false), [clause, setClause] = useState(null), [preview, setPreview] = useState(null), [share, setShare] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(''), [sequence, setSequence] = useState('35'), [showTrash, setShowTrash] = useState(false)
+  const [paymentRef, setPaymentRef] = useState(''), [approvalRef, setApprovalRef] = useState(''), [readinessChecked, setReadinessChecked] = useState(false)
   const upload = useRef(null), latestOpen = useRef(0), previewDialog = useRef(null)
   const locked = form && form.status !== 'draft'
   useEffect(() => {
@@ -60,16 +62,15 @@ export default function ProposalsPage() {
     if (busy || dirty && !window.confirm('Discard unsaved changes and return to proposals?')) return
     ++latestOpen.current; setForm(null); setDirty(false); setParams({}); setError(''); setNotice('')
   }
-  function showPreview(print = false) {
+  async function showPreview(print = false) {
     try {
       const doc = form.published_snapshot || customerSnapshot(form, ws.data.settings)
-      if (print) printProposal(doc, form.status, form.acceptance)
+      if (print) { await printProposal(doc, form.status, form.acceptance); setNotice('PDF downloaded. Check your browser downloads. No proposal was sent.') }
       else setPreview({ document: doc, status: form.status, acceptance: form.acceptance })
     } catch (e) { setError(e.message) }
   }
   async function send() {
     if (api.isDemo) { setNotice('Demo mode cannot create a customer link. Sign in to your live workspace to send.'); return }
-    if (!window.confirm('Issue this proposal and create its customer link? The issued version will be locked until you withdraw it.')) return
     // Save and issue sequentially. Failed publication retains the saved draft.
     const saved = await save(), issued = await api.publish(saved, ws.data.settings)
     setForm(issued); setDirty(false); setShare(true); setNotice('Customer link created. Copy it or open the email draft below to deliver it.')
@@ -78,8 +79,8 @@ export default function ProposalsPage() {
     const fresh = newProposal(form.proposal_type)
     setParams({}); setForm({ ...fresh, customer_id: form.customer_id, project_name: form.project_name + ' - revised',
       project_address: form.project_address, contact_name: form.contact_name, company_name: form.company_name,
-      internal_notes: form.internal_notes, content: structuredClone(form.content) })
-    setDirty(true); setNotice('New draft created. The original proposal and its acceptance remain unchanged.')
+      internal_notes: form.internal_notes, content: { ...structuredClone(form.content), description: 'Proposed revision to ' + form.number + '. This separate offer does not alter the original accepted agreement unless the parties expressly approve the stated changes in writing.\n\n' + form.content.description } })
+    setDirty(true); setNotice('Separate revision draft created. The original acceptance and job remain unchanged; reconcile approved changes through a written change order.')
   }
   async function photos(files) {
     if (form.content.photos.length + files.length > 16) throw new Error('A proposal can contain up to 16 site photos.')
@@ -87,7 +88,7 @@ export default function ProposalsPage() {
     for (const file of files) added.push(await prepareProposalPhoto(file))
     content({ photos: [...form.content.photos, ...added] })
   }
-  const visible = api.rows.filter(row => (filter === 'all' || proposalStatus(row) === filter) && [row.number, row.project_name, row.company_name, row.contact_name, row.project_address].join(' ').toLowerCase().includes(search.toLowerCase()))
+  const visible = api.rows.filter(row => Boolean(row.deleted_at) === showTrash && (filter === 'all' || proposalStatus(row) === filter) && [row.number, row.project_name, row.company_name, row.contact_name, row.project_address].join(' ').toLowerCase().includes(search.toLowerCase()))
   const allClauses = [...api.clauses, ...DEFAULT_CLAUSES]
   const field = (label, key, options = {}) => <label className={options.wide ? 'full-span' : ''}>{label}<input type={options.type || 'text'} maxLength={options.max || 300} value={form[key] || ''} onChange={e => edit({ [key]: e.target.value })} /></label>
   const contentField = (label, key, multiline = false) => <label className={multiline ? 'full-span' : ''}>{label}{multiline
@@ -108,6 +109,7 @@ export default function ProposalsPage() {
         <label>Search proposals<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Number, company, project or address" /></label>
         <label>Status<select value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All statuses</option>{PROPOSAL_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
         <button className="button secondary" disabled={api.loading} onClick={api.refresh}>Refresh</button>
+        <button className="button secondary" onClick={() => setShowTrash(!showTrash)}>{showTrash ? 'Active proposals' : 'Trash / restore'}</button>
       </div>
       {api.loading ? <p role="status">Loading proposals…</p> : <div className="proposal-table-scroll"><table className="proposal-table"><thead><tr><th>Proposal / project</th><th>Customer / company</th><th>Address</th><th>Amount</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead><tbody>
         {visible.map(row => <tr key={row.id}><td><button className="proposal-open" onClick={() => setParams({ id: row.id })}>{row.number}</button><span>{row.project_name}</span></td><td>{row.company_name || row.contact_name}<span>{row.company_name ? row.contact_name : ''}</span></td><td>{row.project_address || 'Not entered'}</td><td>{money(row.amount)}</td><td>{row.created_at?.slice(0, 10)}</td><td>{row.expires_at}</td><td><span className={'proposal-status ' + proposalStatus(row)}>{proposalStatus(row)}</span></td></tr>)}
@@ -116,21 +118,25 @@ export default function ProposalsPage() {
     </> : <>
       <div className="proposal-editor-actions"><div><button className="button secondary" onClick={back} disabled={busy}>← All proposals</button><span className={'proposal-status ' + proposalStatus(form)}>{proposalStatus(form)}</span>{dirty && <span>Unsaved changes</span>}</div>
         <div className="proposal-actions"><button className="button secondary" disabled={busy} onClick={() => showPreview()}>Preview</button><button className="button secondary" disabled={busy} onClick={() => showPreview(true)}>Generate PDF</button>
-          {!locked ? <><button className="button secondary" disabled={busy} onClick={() => run(save)}>Save Draft</button><button className="button primary" disabled={busy} onClick={() => run(send)}>Send Proposal</button></> : <><button className="button secondary" disabled={busy} onClick={duplicate}>Duplicate as new</button>{form.share_token && <button className="button primary" onClick={() => setShare(true)}>Customer link</button>}</>}
+          {!locked && !form.deleted_at ? <><button className="button secondary" disabled={busy} onClick={() => run(save)}>Save Draft</button><button className="button primary" disabled={busy} onClick={() => setConfirmAction('send')}>Send Proposal</button>{form.number && <><button className="button secondary" disabled={busy || dirty} onClick={() => setConfirmAction('number')}>Proposal number</button><button className="button secondary" disabled={busy} onClick={() => setConfirmAction('delete')}>Delete draft</button></>}</> : !form.deleted_at && <><button className="button secondary" disabled={busy} onClick={duplicate}>Create revision</button>{form.share_token && <button className="button primary" onClick={() => setShare(true)}>Customer link</button>}</>}
         </div>
       </div>
+      {form.deleted_at && <div className="proposal-locked"><h2>Draft in Trash</h2><p>The original draft is preserved and its number will not be reused.</p><button className="button primary" disabled={busy} onClick={() => run(async () => { setForm(await api.trash(form, true)); setNotice('Draft restored.'); setShowTrash(false) })}>Restore draft</button></div>}
+      <p className="proposal-helper">Draft → Sent (link issued) → Viewed → Accepted → Deposit / pre-mobilization review → Ready to schedule. Signatures appear on the dedicated acceptance page in Preview and the PDF. Electronic acceptance is available on the issued customer link.</p>
       {locked && <div className="proposal-locked"><strong>{form.status === 'accepted' ? 'Accepted proposal - document locked' : 'Issued proposal - document locked'}</strong><p>{form.status === 'accepted' ? 'The signed version is preserved. Duplicate it to prepare a different offer.' : 'To make changes, withdraw this version. Its existing customer link will stop working.'}</p>
         <div className="proposal-actions">{form.status !== 'accepted' && <button className="button secondary" disabled={busy} onClick={() => run(async () => {
           if (!window.confirm('Withdraw this proposal and disable its existing customer link?')) return
           const row = await api.reopen(form); setForm(row); setDirty(false); setNotice('Link withdrawn. Edit the draft and issue a new link when ready.')
         })}>Withdraw & edit draft</button>}
-        {form.status === 'accepted' && <button className="button primary" disabled={busy || api.isDemo} onClick={() => run(async () => {
+        {form.status === 'accepted' && !form.readiness_cleared_at && <button className="button primary" disabled={busy || api.isDemo} onClick={() => setConfirmAction('ready')}>Review deposit & pre-mobilization</button>}
+        {form.status === 'accepted' && form.readiness_cleared_at && <button className="button primary" disabled={busy || api.isDemo} onClick={() => run(async () => {
           await api.convert(form.id); await ws.refresh(); setDirty(false); navigate('/jobs'); 
-        })}>Convert to Job</button>}</div>
+        })}>Ready to schedule / create job</button>}</div>
+        {form.status === 'accepted' && <p>{form.readiness_cleared_at ? 'Office manually verified pre-mobilization requirements on ' + new Date(form.readiness_cleared_at).toLocaleString() + '. This is not an automatic bank or payment-processor confirmation.' : 'Acceptance is recorded. Payment and required approvals have NOT been marked confirmed. No deposit is collected automatically.'}</p>}
         {form.acceptance && <p>Accepted by {form.acceptance.name} for {form.acceptance.company} on {new Date(form.acceptance.signed_at).toLocaleString()}.</p>}
         {form.decline_reason && <p>Customer feedback: {form.decline_reason}</p>}
       </div>}
-      <fieldset disabled={busy || locked} className="proposal-builder">
+      <fieldset disabled={busy || locked || Boolean(form.deleted_at)} className="proposal-builder">
         <section className="panel"><h2>Project & customer</h2><div className="proposal-fields">
           <label className="full-span">Existing customer<select value={form.customer_id || ''} onChange={e => {
             const customer = ws.customer(e.target.value)
@@ -179,7 +185,7 @@ export default function ProposalsPage() {
         </section>
         <section className="panel"><h2>Internal office notes</h2><p className="proposal-helper">Never included in the customer link or PDF. These notes transfer to the internal job brief.</p><textarea rows={4} maxLength={20000} value={form.internal_notes} onChange={e => edit({ internal_notes: e.target.value })} /></section>
       </fieldset>
-      {!locked && <div className="proposal-bottom-save"><button className="button primary" disabled={busy} onClick={() => run(save)}>{busy ? 'Working…' : 'Save Draft'}</button><p className="proposal-helper">PDF generation opens your browser’s Print / Save as PDF dialog. Review the complete document before sending.</p></div>}
+      {!locked && !form.deleted_at && <div className="proposal-bottom-save"><button className="button primary" disabled={busy} onClick={() => run(save)}>{busy ? 'Working…' : 'Save Draft'}</button><p className="proposal-helper">Generate PDF downloads a complete PDF, including the signature page. Review it before issuing a customer link.</p></div>}
     </>}
     <Modal title="Start a commercial proposal" open={chooseTemplate} onClose={() => setChooseTemplate(false)}>
       <div className="proposal-template-pick"><h3>Your six-acre clearing bid</h3><p>Pre-filled sections for the preliminary tree count, large timber, excavator work, building and roadway demolition, and full haul-off. Customer details and pricing remain blank.</p><button className="button primary" onClick={() => start(true)}>Use six-acre project template</button></div>
@@ -195,13 +201,21 @@ export default function ProposalsPage() {
         </div></div>)}</>}
       {error && <p role="alert" className="error-banner">{error}</p>}
     </Modal>
+    <Modal title="Confirm proposal action" open={Boolean(confirmAction)} onClose={() => !busy && setConfirmAction('')}>
+      {confirmAction === 'send' && <><h3>Issue {form?.number || 'this draft'}?</h3><p>This saves your current work, locks the issued version and creates a customer link with electronic acceptance. It does not email or text anyone. Review the complete PDF first.</p><button className="button primary" disabled={busy} onClick={() => run(async () => { await send(); setConfirmAction('') })}>Create customer link</button></>}
+      {confirmAction === 'delete' && <><p>Move {form?.number} to Trash? You can restore it from Trash / restore. Accepted proposals cannot be deleted.</p><button className="button primary" disabled={busy} onClick={() => run(async () => { await api.trash(form); setConfirmAction(''); ++latestOpen.current; setForm(null); setDirty(false); setParams({}); setNotice('Draft moved to Trash. You can restore it at any time.') })}>Move draft to Trash</button></>}
+      {confirmAction === 'number' && <><p>Change this saved draft’s sequence number in its existing year. Numbers must be unique. Future numbers continue above the highest reserved number; each new year starts at 0001. This does not create earlier proposals.</p><label>Sequence number<input type="number" min="1" max="999999" value={sequence} onChange={e => setSequence(e.target.value)} /></label><button className="button primary" disabled={busy} onClick={() => run(async () => { setForm(await api.renumber(form, sequence)); setConfirmAction(''); setNotice('Draft number updated; numbering history recorded.') })}>Update draft number</button></>}
+      {confirmAction === 'ready' && <><h3>Manual office verification</h3><p>No payment is processed here. Check the actual payment records and all requirements in the accepted proposal, including any separate contract, utility disconnections and asbestos/environmental clearance. Do not clear this step merely because the customer signed.</p><label>Deposit/payment receipt or reference (or documented no-deposit requirement)<textarea value={paymentRef} onChange={e => setPaymentRef(e.target.value)} maxLength={2000} /></label><label>Required approvals / clearance documents and contract reference<textarea value={approvalRef} onChange={e => setApprovalRef(e.target.value)} maxLength={4000} /></label><label className="proposal-consent"><input type="checkbox" checked={readinessChecked} onChange={e => setReadinessChecked(e.target.checked)} />I personally verified the payment and required pre-mobilization documents.</label><button className="button primary" disabled={busy || !readinessChecked || paymentRef.trim().length < 5 || approvalRef.trim().length < 5} onClick={() => run(async () => { setForm(await api.clearReadiness(form, paymentRef, approvalRef)); setConfirmAction(''); setNotice('Manual office verification recorded. No funds were collected by this action.') })}>Record manual verification</button></>}
+      {error && <p role="alert" className="error-banner">{error}</p>}
+    </Modal>
     <Modal title="Deliver proposal" open={share} onClose={() => setShare(false)}>
       <p>The customer sees only the issued document. They can download a PDF and accept electronically.</p><p>No email has been sent automatically.</p>
       <label>Customer link<input readOnly value={shareUrl} onFocus={e => e.target.select()} /></label>
+      {!form?.content.email && <p>No customer email is saved. Copy the link to deliver it yourself, or withdraw and add an email before reissuing.</p>}
       <div className="proposal-actions"><button className="button primary" onClick={() => run(async () => { await navigator.clipboard.writeText(shareUrl); setNotice('Customer link copied.'); })}>Copy link</button>
         {form?.content.email && <a className="button secondary" href={'mailto:' + encodeURIComponent(form.content.email) + '?subject=' + encodeURIComponent('Proposal ' + form.number + ' - ' + form.project_name) + '&body=' + encodeURIComponent('Hello ' + form.contact_name + ',\n\nPlease review your Valid Tree Service proposal here:\n' + shareUrl + '\n\nYou can download a PDF and accept electronically using the link. Please contact us with any questions.\n\nValid Tree Service LLC\n' + ws.data.settings.phone)}>Open email draft</a>}
       </div>{notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
     </Modal>
-    {preview && <dialog ref={previewDialog} className="proposal-preview-overlay" aria-label="Proposal preview" onCancel={() => setPreview(null)}><div className="proposal-preview-toolbar"><strong>Customer-facing preview</strong><div className="proposal-actions"><button className="button primary" onClick={() => { try { printProposal(preview.document, preview.status, preview.acceptance) } catch (e) { setError(e.message); setPreview(null) } }}>Generate PDF</button><button className="button secondary" autoFocus onClick={() => setPreview(null)}>Close preview</button></div></div><ProposalDocument {...preview} /></dialog>}
+    {preview && <dialog ref={previewDialog} className="proposal-preview-overlay" aria-label="Proposal preview" onCancel={() => setPreview(null)}><div className="proposal-preview-toolbar"><strong>Customer-facing preview</strong><div className="proposal-actions"><button className="button primary" disabled={busy} onClick={() => run(() => printProposal(preview.document, preview.status, preview.acceptance))}>Generate PDF</button><button className="button secondary" autoFocus onClick={() => setPreview(null)}>Close preview</button></div></div>{error && <p role="alert">{error}</p>}<ProposalDocument {...preview} /><p className="proposal-response">Preview only. The customer’s ACCEPT PROPOSAL button appears on the issued link; previewing never accepts or sends this proposal.</p></dialog>}
   </section>
 }

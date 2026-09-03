@@ -25,9 +25,16 @@ insert into public.profiles values ('${owner}','${owner}','owner',true),('${othe
 insert into public.company_settings values ('${owner}','Valid Tree Service LLC','832-445-6535','office@example.test','example.test','Houston');
 `)
 await db.exec(await readFile(new URL('../supabase/migrations/014_commercial_proposals.sql', import.meta.url), 'utf8'))
+await db.exec(await readFile(new URL('../supabase/migrations/015_proposal_acceptance_controls.sql', import.meta.url), 'utf8'))
 let checks = 0
 async function asUser(id, role = 'authenticated') { await db.exec('reset role'); await db.query("select set_config('test.uid',$1,false)", [id]); await db.exec('set role ' + role) }
-async function call(name, args = []) { return (await db.query('select * from public.' + name + '(' + args.map((_, i) => '$' + (i + 1)).join(',') + ')', args)).rows[0] }
+async function call(name, args = []) {
+  const original = name
+  if (name === 'respond_commercial_proposal') { name += '_v2'; args = [...args, 'Project Manager', 'jane@example.test'] }
+  const result = (await db.query('select * from public.' + name + '(' + args.map((_, i) => '$' + (i + 1)).join(',') + ')', args)).rows[0]
+  if (name !== original) result[original] = result[name]
+  return result
+}
 async function rejects(fn, pattern) { await assert.rejects(fn, pattern); checks++ }
 function okay(condition, message) { assert.ok(condition, message); checks++ }
 function draft() {
@@ -75,6 +82,8 @@ try {
   await rejects(() => call('respond_commercial_proposal', [issue.share_token, issue.revision, 'decline', '', '', '', false, '']), /no longer/i)
   await asUser(owner)
   await rejects(() => call('reopen_commercial_proposal', [p.id, issue.revision]), /Accepted/i)
+  await rejects(() => call('convert_commercial_proposal', [p.id]), /deposit|pre-mobilization/i)
+  await call('clear_commercial_proposal_readiness', [p.id, issue.revision, 'Isolated test receipt 001', 'Isolated test approvals reviewed'])
   const job1 = (await call('convert_commercial_proposal', [p.id])).convert_commercial_proposal
   const job2 = (await call('convert_commercial_proposal', [p.id])).convert_commercial_proposal
   okay(job1 === job2, 'Conversion is idempotent')
@@ -82,6 +91,21 @@ try {
   const job = (await db.query('select * from public.jobs where id=$1', [job1])).rows[0]
   okay(job.status === 'unscheduled' && job.address === p.project_address && Number(job.proposal_amount) === 100.10, 'Job fields transferred')
   okay(job.foreman_notes.includes('PRIVATE_INTERNAL_SECRET') && job.proposal_snapshot.content.payment_terms === p.content.payment_terms, 'Internal brief and payment snapshot retained')
+  await asUser(owner)
+  const numberDraft = draft(), numberRow = await call('save_commercial_proposal', [numberDraft.id,0,numberDraft])
+  const changedNumber = await call('renumber_commercial_proposal', [numberRow.id,numberRow.revision,35])
+  okay(changedNumber.number.endsWith('-0035'), 'Owner can reserve draft sequence 35')
+  const nextDraft = draft(), nextRow = await call('save_commercial_proposal', [nextDraft.id,0,nextDraft])
+  okay(nextRow.number.endsWith('-0036'), 'Next sequence follows reserved high-water mark')
+  await rejects(() => call('renumber_commercial_proposal', [nextRow.id,nextRow.revision,35]), /already reserved/i)
+  const trashed = await call('trash_commercial_proposal', [nextRow.id,nextRow.revision,false])
+  okay(Boolean(trashed.deleted_at), 'Draft soft deletion preserves original')
+  await rejects(() => call('save_commercial_proposal', [trashed.id,trashed.revision,nextDraft]), /Restore/i)
+  const restored = await call('trash_commercial_proposal', [trashed.id,trashed.revision,true])
+  okay(!restored.deleted_at && restored.number===nextRow.number, 'Restore retains proposal and number')
+  await rejects(() => call('trash_commercial_proposal', [p.id,issue.revision,false]), /draft/i)
+  await db.exec('reset role')
+  await rejects(() => db.query("update public.commercial_proposals set amount=5 where id=$1",[p.id]), /locked/i)
   await asUser(owner)
   const withdraw = await call('publish_commercial_proposal', [more[0].id, more[0].revision])
   await call('reopen_commercial_proposal', [withdraw.id, withdraw.revision])

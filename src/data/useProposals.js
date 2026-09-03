@@ -24,7 +24,7 @@ export default function useProposals() {
       if (isDemo) { const d = readDemo(); setRows(d.rows); setClauses(d.clauses); return }
       if (!user) { setRows([]); setClauses([]); return }
       const [r, c] = await Promise.all([
-        resultOf(supabase.from('commercial_proposals').select('id,number,project_name,project_address,contact_name,company_name,amount,created_at,proposal_date,expires_at,status,revision').order('created_at', { ascending: false })),
+        resultOf(supabase.from('commercial_proposals').select('id,number,project_name,project_address,contact_name,company_name,amount,created_at,proposal_date,expires_at,status,revision,deleted_at').order('created_at', { ascending: false })),
         resultOf(supabase.from('proposal_clauses').select('*').order('title')),
       ])
       setRows(r); setClauses(c)
@@ -90,6 +90,19 @@ export default function useProposals() {
     }
     await resultOf(supabase.from('proposal_clauses').delete().eq('id', id)); await refresh()
   }
-  return { rows, clauses, loading, error, isDemo, refresh, get, save, publish, reopen, saveClause, deleteClause,
+  async function trash(row, restore = false) {
+    if (isDemo) return demoPut({ ...row, deleted_at: restore ? null : new Date().toISOString(), revision: row.revision + 1 })
+    const saved = await resultOf(supabase.rpc('trash_commercial_proposal', { p_id: row.id, p_revision: row.revision, p_restore: restore }))
+    await refresh(); return saved
+  }
+  async function renumber(row, sequence) {
+    if (isDemo) throw new Error('Proposal numbering is managed in your live workspace.')
+    const saved = await resultOf(supabase.rpc('renumber_commercial_proposal', { p_id: row.id, p_revision: row.revision, p_sequence: Number(sequence) }))
+    await refresh(); return saved
+  }
+  async function clearReadiness(row, payment, approvals) {
+    return resultOf(supabase.rpc('clear_commercial_proposal_readiness', { p_id: row.id, p_revision: row.revision, p_payment_reference: payment, p_approval_reference: approvals }))
+  }
+  return { rows, clauses, loading, error, isDemo, refresh, get, save, publish, reopen, saveClause, deleteClause, trash, renumber, clearReadiness,
     convert: id => resultOf(supabase.rpc('convert_commercial_proposal', { p_id: id })) }
 }
