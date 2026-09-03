@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Modal, PageHeader, StatusBadge } from '../components/ui'
 import { useWorkspace } from '../data/WorkspaceProvider'
 
@@ -95,7 +96,7 @@ export default function JobsPage() {
       />
 
       <div className="board">
-        {['scheduled', 'in progress', 'completed'].map((status) => (
+        {[...(data.jobs.some(job => job.status === 'unscheduled') ? ['unscheduled'] : []), 'scheduled', 'in progress', 'completed'].map((status) => (
           <div className="board-column" key={status}>
             <div className="board-title">
               <span>{status}</span>
@@ -171,10 +172,21 @@ export default function JobsPage() {
               <div><span>Equipment</span><strong>{selected.equipment || 'Not specified'}</strong></div>
             </div>
             <div className="scope-preview"><span>Foreman brief</span><p>{selected.foreman_notes || 'No notes.'}</p></div>
+            {selected.proposal_id && <div className="proposal-job-handoff">
+              <h3>Commercial proposal handoff</h3>
+              <p>Accepted value: <strong>{Number(selected.proposal_amount || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong></p>
+              <Link className="button secondary" to={'/proposals?id=' + selected.proposal_id}>Open accepted proposal & site photos</Link>
+              <p><strong>Payment terms</strong><br />{selected.proposal_snapshot?.content?.payment_terms}</p>
+              <p><strong>Milestones</strong><br />{selected.proposal_snapshot?.content?.milestones || 'As agreed in the proposal.'}</p>
+              <p><strong>Mobilization</strong><br />{selected.proposal_snapshot?.content?.mobilization || 'Confirm before scheduling.'}</p>
+              <label>Schedule commercial job<input type="date" defaultValue={selected.date || ''} onChange={event => {
+                if (event.target.value) updateAndWait('jobs', selected.id, { date: event.target.value, status: selected.status === 'unscheduled' ? 'scheduled' : selected.status }).catch(error => window.alert(error.message || 'Schedule could not be saved.'))
+              }} /></label>
+            </div>}
             <label>
               Status
               <select value={selected.status} onChange={(event) => changeStatus(event.target.value)}>
-                <option>scheduled</option><option>in progress</option><option>completed</option><option>cancelled</option>
+                {selected.proposal_id && <option>unscheduled</option>}<option>scheduled</option><option>in progress</option><option>completed</option><option>cancelled</option>
               </select>
             </label>
             <label>Completion notes<textarea rows="4" defaultValue={selected.completion_notes} onBlur={(event) => updateAndWait('jobs', selected.id, { completion_notes: event.target.value }).catch(() => window.alert('Completion notes could not be saved.'))} /></label>
