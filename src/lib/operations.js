@@ -21,6 +21,7 @@ export function invoiceRevenue(jobId, invoices = []) {
 }
 
 export function contractRevenue(job, contracts = []) {
+  if (job?.proposal_id) return number(job.proposal_amount)
   const contract = contracts.find((item) => item.id === job?.contract_id)
   return number(contract?.total_price)
 }
@@ -31,7 +32,8 @@ export function jobFinancials(job, data) {
     (data.change_orders || []).filter((item) => item.job_id === jobId && item.status === 'approved'),
     (item) => item.amount,
   )
-  const baseRevenue = invoiceRevenue(jobId, data.invoices) || contractRevenue(job, data.contracts)
+  // Commercial milestone invoices do not replace the full accepted contract value.
+  const baseRevenue = job?.proposal_id ? contractRevenue(job, data.contracts) : invoiceRevenue(jobId, data.invoices) || contractRevenue(job, data.contracts)
   const revenue = baseRevenue + approvedChanges
   const budget = sum((data.job_budgets || []).filter((item) => item.job_id === jobId), (item) => item.estimated_amount)
   const expenses = sum((data.expenses || []).filter((item) => item.job_id === jobId), (item) => item.amount)
