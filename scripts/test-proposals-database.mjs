@@ -26,6 +26,14 @@ insert into public.company_settings values ('${owner}','Valid Tree Service LLC',
 `)
 await db.exec(await readFile(new URL('../supabase/migrations/014_commercial_proposals.sql', import.meta.url), 'utf8'))
 await db.exec(await readFile(new URL('../supabase/migrations/015_proposal_acceptance_controls.sql', import.meta.url), 'utf8'))
+await db.exec(`
+alter table public.jobs add column contract_id uuid;
+alter table public.company_settings add column tagline text;
+create table public.contracts(id uuid primary key,owner_id uuid,customer_id uuid,scope_of_work text);
+create table public.invoices(id uuid primary key,owner_id uuid,customer_id uuid,job_id uuid,contract_id uuid,receipt_token uuid,number text,amount numeric,paid numeric,status text,due_date date,created_at timestamptz,last_payment_at timestamptz,notes text,voided_at timestamptz,void_reason text);
+create table public.payments(invoice_id uuid,amount numeric,payment_date date,method text,status text,created_at timestamptz);
+`)
+await db.exec(await readFile(new URL('../supabase/migrations/016_receipt_scope_proposal_trash.sql', import.meta.url), 'utf8'))
 let checks = 0
 async function asUser(id, role = 'authenticated') { await db.exec('reset role'); await db.query("select set_config('test.uid',$1,false)", [id]); await db.exec('set role ' + role) }
 async function call(name, args = []) {
@@ -103,7 +111,24 @@ try {
   await rejects(() => call('save_commercial_proposal', [trashed.id,trashed.revision,nextDraft]), /Restore/i)
   const restored = await call('trash_commercial_proposal', [trashed.id,trashed.revision,true])
   okay(!restored.deleted_at && restored.number===nextRow.number, 'Restore retains proposal and number')
-  await rejects(() => call('trash_commercial_proposal', [p.id,issue.revision,false]), /draft/i)
+  const archived = await call('trash_commercial_proposal', [p.id,issue.revision,false])
+  okay(archived.deleted_at && archived.status==='accepted', 'Accepted proposal can be recoverably removed')
+  okay(archived.acceptance.document_hash===accepted.acceptance.document_hash, 'Removal preserves signed document hash')
+  await rejects(() => call('trash_commercial_proposal', [p.id,issue.revision,false]), /changed/i)
+  await rejects(() => call('convert_commercial_proposal', [p.id]), /accepted/i)
+  await asUser(other)
+  await rejects(() => call('trash_commercial_proposal', [p.id,archived.revision,true]), /changed/i)
+  await asUser(crew)
+  await rejects(() => call('trash_commercial_proposal', [p.id,archived.revision,true]), /office/i)
+  await asUser('', 'anon')
+  await rejects(() => call('get_commercial_proposal', [issue.share_token]), /unavailable/i)
+  await asUser(owner)
+  const unarchived = await call('trash_commercial_proposal', [p.id,archived.revision,true])
+  okay(!unarchived.deleted_at && JSON.stringify(unarchived.acceptance)===JSON.stringify(archived.acceptance), 'Restore preserves acceptance')
+  await asUser('', 'anon')
+  const restoredDocument = (await call('get_commercial_proposal', [issue.share_token])).get_commercial_proposal
+  okay(restoredDocument.status==='accepted', 'Restored customer link is available')
+  await asUser(owner)
   await db.exec('reset role')
   await rejects(() => db.query("update public.commercial_proposals set amount=5 where id=$1",[p.id]), /locked/i)
   await asUser(owner)
@@ -119,5 +144,24 @@ try {
   await rejects(() => call('respond_commercial_proposal', [exp.share_token, exp.revision, 'accept', 'Jane Doe', 'Test GC', 'Jane Doe', true, '']), /expired/i)
   const expired = (await call('get_commercial_proposal', [exp.share_token])).get_commercial_proposal
   okay(expired.status === 'expired', 'Expired link not signable')
+  await db.exec('reset role')
+  const inv='40000000-0000-4000-8000-000000000001', token='50000000-0000-4000-8000-000000000001', contract='60000000-0000-4000-8000-000000000001'
+  await db.query('insert into public.contracts values($1,$2,$3,$4)',[contract,owner,job.customer_id,'Trim tree canopy.\nHaul cut branches.'])
+  await db.query("insert into public.invoices(id,owner_id,customer_id,contract_id,receipt_token,number,amount,paid,status) values($1,$2,$3,$4,$5,'INV-test',350,350,'paid')",[inv,owner,job.customer_id,contract,token])
+  await asUser('', 'anon')
+  let receipt=(await call('get_invoice_receipt',[token])).get_invoice_receipt
+  okay(receipt.invoice.work_description.includes('Trim tree'), 'Existing invoice inherits linked contract scope')
+  okay(!JSON.stringify(receipt).includes('PRIVATE_INTERNAL'), 'Receipt never exposes internal proposal or crew notes')
+  await db.exec('reset role')
+  await db.query("update public.invoices set work_description='Customer-visible override' where id=$1",[inv])
+  await asUser('', 'anon')
+  receipt=(await call('get_invoice_receipt',[token])).get_invoice_receipt
+  okay(receipt.invoice.work_description==='Customer-visible override', 'Explicit invoice description takes priority')
+  await db.exec('reset role')
+  await db.query("update public.invoices set work_description=null where id=$1",[inv])
+  await db.query('update public.contracts set owner_id=$1 where id=$2',[other,contract])
+  await asUser('', 'anon')
+  receipt=(await call('get_invoice_receipt',[token])).get_invoice_receipt
+  okay(receipt.invoice.work_description===null, 'Cross-workspace contract scope is not exposed')
   console.log('PASS: ' + checks + ' isolated database checks: numbering, snapshots, RLS, signatures, expiration, revocation and conversion.')
 } finally { await db.close() }
